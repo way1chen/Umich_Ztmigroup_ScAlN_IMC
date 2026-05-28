@@ -6,28 +6,22 @@ import sys
 
 
 TEMPLATE = '''from PySide6 import QtWidgets, QtCore
-import sys
+from gui.widgets.preview_util import preview_widget
 
 
 class {class_name}(QtWidgets.QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
 
+        #Define Child Widgets
+
+        #Define Layout
+
+        #Define Signal-Slot Connections
+
 
 def preview():
-    app = QtWidgets.QApplication.instance()
-
-    owns_app = app is None
-
-    if owns_app:
-        app = QtWidgets.QApplication(sys.argv)
-
-    widget = {class_name}()
-    widget.resize(400, 400)
-    widget.show()
-
-    if owns_app:
-        sys.exit(app.exec())
+    preview_widget({class_name})
 
 
 if __name__ == "__main__":
@@ -54,7 +48,7 @@ def main():
 
     filename = camel_to_snake(class_name) + ".py"
 
-    path = Path("widgets/" + filename)
+    path = Path("gui/widgets/" + filename)
 
     if path.exists():
         print(f"Error: {filename} already exists")
