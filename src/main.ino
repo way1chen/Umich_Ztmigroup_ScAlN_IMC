@@ -144,9 +144,9 @@ void loop() {
     if (input.equalsIgnoreCase("on")) {
       digitalWriteFast(PIN_PU, LOW);
       armed = true;
-      Serial.println("PIN_PU is now LOW. Now turn on physical 3.3V, then type 33.");
+      Serial.println("PIN_PU is now LOW. Now turn on physical 3.3V, then type 3.3.");
     }
-    else if (input.equalsIgnoreCase("33")) {
+    else if (input.equalsIgnoreCase("3.3")) {
       if (armed) {
         systemEnabled = true;
         if (!hardwareInitialized) {
@@ -179,9 +179,28 @@ void loop() {
     } else if (systemEnabled) {
 
       String theinput = input;
-      if (theinput.startsWith("PATCH,")) {
-        run_patch_sanity_suite(theinput);
 
+      if (theinput.startsWith("PATCHBATCH,")) {
+        run_mnist_test_realarray(theinput, false);
+        delay(1);
+
+      } else if (theinput.startsWith("PATCHBATCHOFFS,")) {
+        run_mnist_test_realarray(theinput, true);
+        delay(1);
+        
+      } else if (theinput.startsWith("PATCH,")) {
+        run_patch_sanity_suite(theinput, false);
+        delay(1);
+
+      } else if (theinput.startsWith("PATCHOFFS,")) {
+        run_patch_sanity_suite(theinput, true);
+        delay(1);
+
+      } else if (theinput.startsWith("PATCHCNN,")) {
+        run_cnn_test_resistor(theinput);
+        delay(1);
+
+      } else if (theinput.equalsIgnoreCase("testmenu")) {
         print_test_menu();
 
       } else {

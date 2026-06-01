@@ -47,8 +47,10 @@
 #define ADS1115_COMP_QUE_DISABLE     0x0003
 
 // Default measurement settings
-static constexpr uint16_t ADS1115_DEFAULT_PGA = ADS1115_PGA_4_096V  ;
+static constexpr uint16_t ADS1115_DEFAULT_PGA = ADS1115_PGA_4_096V;
 static constexpr float ADS1115_DEFAULT_FSR_VOLTS = 4.096f;
+// static constexpr uint16_t ADS1115_DEFAULT_PGA = ADS1115_PGA_0_512V;
+// static constexpr float ADS1115_DEFAULT_FSR_VOLTS = 0.512f;
 static constexpr uint16_t ADS1115_DEFAULT_DR = ADS1115_DR_860SPS;
 
 inline bool ads1115_write_register(TwoWire &bus, uint8_t i2c_addr, uint8_t reg, uint16_t value) {

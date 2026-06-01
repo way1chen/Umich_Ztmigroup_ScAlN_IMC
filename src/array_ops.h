@@ -113,21 +113,26 @@ inline float read_cell(uint8_t row, uint8_t col, float v_read, float pulse_lengt
     sr595_select_row(row);
     select_column(col);
 
-    digitalWriteFast(PIN_ISPP, HIGH);
-    delay(pulse_length);
-    
-    float read_voltage = adc_read_channel(col);
 
+    // if we don't use micros, ispp vread takes duration of pulse_length + however long it takes for adc to read. 
+    // so adc read time is our bottleneck, the ispp pulse 
+    digitalWriteFast(PIN_ISPP, HIGH);   
+    delayMicroseconds(pulse_length - 2417); // 2417us is how much adc read takes
+    float read_voltage = adc_read_channel(col); // 0.005 is the average baseline adc reading
     digitalWriteFast(PIN_ISPP, LOW);
-
     sr595_deselect_all();
     deselect_all_columns();
     dac_set_voltage(AD5689_ADDR_DAC_B, 0.0f);
     dac_set_voltage(AD5689_ADDR_DAC_A, 0.0f);
 
-    delay(pulse_length);
+    // we want to compare the conductance/resistance of the weights. 8 is the gain, 200000 is the Rref of the TIA. 
+    float read_resistance = (read_voltage/(8.0*v_read*1000000.0));
+    Serial.print("Current conductance: ");Serial.println(read_resistance, 15);
 
-    return read_voltage; 
+    // double the ground time
+    delayMicroseconds(pulse_length*2);
+
+    return read_resistance; 
 }
 
 // ---------------------------------------------------------------------------
@@ -148,7 +153,7 @@ inline void write_cell(uint8_t row, uint8_t col, float v_write, float pulse_leng
     select_column(col);
 
     digitalWriteFast(PIN_ISPP, HIGH);
-    delay(pulse_length);
+    delayMicroseconds(pulse_length);
 
     digitalWriteFast(PIN_ISPP, LOW);
 
@@ -160,7 +165,8 @@ inline void write_cell(uint8_t row, uint8_t col, float v_write, float pulse_leng
     dac_set_voltage(AD5689_ADDR_DAC_B, 0.0f);
     dac_set_voltage(AD5689_ADDR_DAC_A, 0.0f);
 
-    delay(pulse_length);
+    // double the ground time
+    delayMicroseconds(pulse_length*2);
 
 }
 

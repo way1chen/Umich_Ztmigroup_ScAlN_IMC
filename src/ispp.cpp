@@ -25,6 +25,8 @@ void write_cell_once(uint8_t row, uint8_t col, float v_write, float pulse_length
 // check whether the weight is within tolerance of our target during write
 bool is_within_tolerance(float measured, float target, float tolerance) {
   if (fabsf(measured - target) < tolerance) {
+    // Serial.println("inside tolerance");
+    // float rest = read_cell(12,3,0.55,3500);
     return true;
   }
   return false;
