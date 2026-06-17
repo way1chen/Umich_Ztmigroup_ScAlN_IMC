@@ -55,6 +55,7 @@ class ImageProcessing(QtWidgets.QWidget):
         self.main_splitter.setChildrenCollapsible(False)
         self.main_splitter.setStretchFactor(0, 4)
         self.main_splitter.setStretchFactor(1, 1)
+        self.main_splitter.setSizes([900, 360])
 
         layout = QtWidgets.QHBoxLayout()
         layout.addWidget(self.main_splitter)
@@ -65,17 +66,16 @@ class ImageProcessing(QtWidgets.QWidget):
         self.sidebar.paint_enabled_changed.connect(self.input_image.set_edit_enabled)
         self.sidebar.brush_size_changed.connect(self.input_image.set_brush_radius)
         self.sidebar.brush_value_changed.connect(self.input_image.set_brush_value)
-        self.input_image.image_changed.connect(self.sidebar.set_selected_image)
         self.sidebar.mode_changed.connect(self.handle_mode_changed)
         self.sidebar.submit_requested.connect(self.handle_submit_requested)
         self.sidebar.error_occurred.connect(self.error_occurred.emit)
 
 
     @QtCore.Slot(QtGui.QImage)
-    def receive_serial_image(self, image):
+    def receive_processed_image(self, image):
         """Slot to receive processed images from the serial manager.
 
-        Connect `SerialManager.image_received` to this slot to display remote
+        Connect `SerialManager.processed_image_received` to this slot to display remote
         results in the output pane.
         """
         if image is None:
@@ -90,7 +90,7 @@ class ImageProcessing(QtWidgets.QWidget):
             return
 
         self.input_image.set_image(image)
-        self.sidebar.set_selected_image(image)
+
 
 
     @QtCore.Slot(object)
@@ -99,19 +99,13 @@ class ImageProcessing(QtWidgets.QWidget):
 
 
     @QtCore.Slot(object, object)
-    def handle_submit_requested(self, image_source, mode):
+    def handle_submit_requested(self, mode):
         """Handle submit events from the sidebar.
 
-
-        If the selected source is empty and the input image widget contains an image,
+        If the input image widget contains an image,
         the current `QImage` will be emitted.
         """
 
-        if isinstance(image_source, QtGui.QImage) and not image_source.isNull():
-            self.serial_submit_requested.emit(image_source, mode)
-            return
-
-        # If no image provided, attempt to submit the in-memory image.
         current = self.input_image.current_image()
         if isinstance(current, QtGui.QImage) and not current.isNull():
             self.serial_submit_requested.emit(current, mode)

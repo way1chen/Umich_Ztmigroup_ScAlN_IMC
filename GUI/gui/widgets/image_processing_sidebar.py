@@ -11,13 +11,13 @@ class ImageProcessingSidebar(QtWidgets.QWidget):
     brush_size_changed = QtCore.Signal(int)
     brush_value_changed = QtCore.Signal(int)
     mode_changed = QtCore.Signal(object)
-    submit_requested = QtCore.Signal(object, object)
+    submit_requested = QtCore.Signal(object)
     error_occurred = QtCore.Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self.selected_input = None
+
         self.selected_mode = ProcessingMode.BLUR_LIGHT
 
         self.file_label = QtWidgets.QLabel("No image selected")
@@ -32,7 +32,6 @@ class ImageProcessingSidebar(QtWidgets.QWidget):
         self.mode_select.setCurrentIndex(0)
 
         self.submit_button = QtWidgets.QPushButton("Submit")
-        self.submit_button.setEnabled(False)
 
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(QtWidgets.QLabel("Selected Image"))
@@ -59,11 +58,8 @@ class ImageProcessingSidebar(QtWidgets.QWidget):
         self.submit_button.pressed.connect(self.request_submit)
         self.mnist_picker.error_occurred.connect(self.error_occurred.emit)
 
-    def set_selected_image(self, image, label_text=None):
-        self.selected_input = image
-        if label_text is not None:
-            self.file_label.setText(label_text)
-        self.submit_button.setEnabled(image is not None and not image.isNull())
+   
+
 
 
     @QtCore.Slot()
@@ -90,7 +86,6 @@ class ImageProcessingSidebar(QtWidgets.QWidget):
             return
 
         image = image.convertToFormat(QtGui.QImage.Format.Format_Grayscale8)
-        self.set_selected_image(image, file_path)
         self.image_selected.emit(image)
 
 
@@ -99,7 +94,6 @@ class ImageProcessingSidebar(QtWidgets.QWidget):
         if image is None or image.isNull():
             return
 
-        self.set_selected_image(image, "MNIST test sample selected")
         self.image_selected.emit(image)
 
 
@@ -121,10 +115,7 @@ class ImageProcessingSidebar(QtWidgets.QWidget):
 
     @QtCore.Slot()
     def request_submit(self):
-        if self.selected_input is None:
-            return
-
-        self.submit_requested.emit(self.selected_input, self.selected_mode)
+        self.submit_requested.emit(self.selected_mode)
 
 
 def preview():

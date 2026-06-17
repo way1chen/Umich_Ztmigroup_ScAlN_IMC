@@ -1,5 +1,6 @@
 from PySide6 import QtCore, QtGui
 import serial
+from enum import Enum
 
 from gui.widgets.processing_mode import ProcessingMode
 
@@ -12,12 +13,20 @@ This module provides two Qt-friendly components:
     exposes simple slots/signals for the rest of the application to use.
 
 Protocol (simple line-based header + raw payload):
-- The app sends a command line (e.g. "BLUR_LIGHT\n"), followed immediately by
-    exactly 400 bytes of 8-bit grayscale image data (20x20).
-- The MCU responds with a newline-terminated header like "OK|400\n" then
-    exactly 400 bytes of grayscale image data.
+- Processing: The App first sends "PROCESSIN\n" to request the image processing mode.
+    It then sends the processing mode it would like, eg "BLUR_LIGHT". Then it will send the 20X20 grayscale image
+    Example:
+        PROCESSING\nBLUR_LIGHT\n<image payload>
+    The system will the return a header message and the processed image.
+- Classify: The app First Sends "CLASSIFY\n followed by the image payload.
+    Example:
+        CLASSIFY\n<image payload>
+    The system will then send back an 'OK' header and then a string containing the 
+    probability values for each digit.
+    Example Return:
+        OK\n0.00,0.10,0.20,0.30,0.40,0.50,0.60,0.70,0.80,0.90
 
-The worker handles assembling partial reads and emits `image_received` when
+The worker handles assembling partial reads and emits `processed_image_received` when
 an entire processed frame is available as `QImage`.
 """
 
@@ -27,13 +36,21 @@ class SerialWorker(QtCore.QObject):
 
     Signals:
     - `data_received(str)`: arbitrary text lines received when not part of image flow.
-    - `image_received(QImage)`: emitted when a full 20x20 processed image arrives.
+    - `processed_image_received(QImage)`: emitted when a full 20x20 processed image arrives.
+    - `classification_received(list[float])`: emitted when 10 MNIST confidence values arrive.
     - `error_occurred(str)`: non-fatal error messages.
     - `port_opened(str)`, `port_closed()`, `disconnected()`: lifecycle events.
     """
 
+    class Task(Enum):
+        PROCESSING = 0
+        CLASSIFICATION = 1
+        IDLE = 2 
+
+
     data_received = QtCore.Signal(str)
-    image_received = QtCore.Signal(QtGui.QImage)
+    processed_image_received = QtCore.Signal(QtGui.QImage)
+    classification_received = QtCore.Signal(list)
     error_occurred = QtCore.Signal(str)
     port_opened = QtCore.Signal(str)
     port_closed = QtCore.Signal()
@@ -47,12 +64,13 @@ class SerialWorker(QtCore.QObject):
 
         # Receiving state -------------------------------------------------
         # _rx_buffer: accumulated bytes read from the serial port
-        # _awaiting_image_reply: True when we've sent an image and expect a framed reply
-        # _awaiting_image_header: True while waiting for the newline-terminated header
+        # _awaiting_task_reply: True when we've sent a task request and expect a framed reply
+        # _awaiting_task_header: True while waiting for the newline-terminated header
         # _expected_image_size: how many raw payload bytes to wait for (400)
         self._rx_buffer = bytearray()
-        self._awaiting_image_reply = False
-        self._awaiting_image_header = False
+        self._awaiting_task_reply = False
+        self._awaiting_task_header = False
+        self._current_task = self.Task.IDLE
         self._expected_image_size = 0
 
         self.poll_timer = QtCore.QTimer(self)
@@ -106,32 +124,58 @@ class SerialWorker(QtCore.QObject):
 
         self.serial_port = None
         self.port_closed.emit()
+#===========================================================================
+# Start task functions:
+#===========================================================================
 
-
-    @QtCore.Slot(str)
-    def send_text(self, text):
-        """Send a newline-terminated text command over serial.
-
-        Used for human-readable or control messages outside the image flow.
-        """
-
+    @QtCore.Slot(object)
+    def classify_image(self, image: QtGui.QImage):
+        if self._current_task != self.Task.IDLE:
+            self.error_occurred.emit("Some task already in progress")
+            return
         if not self._is_port_open():
             self.error_occurred.emit("No serial port is open")
+            return 
+
+        
+        payload = None
+
+        # Accept a file path, a QImage, or raw bytes/bytearray
+
+        if isinstance(image, QtGui.QImage):
+            payload = self._payload_from_qimage(image)
+        elif isinstance(image, (bytes, bytearray)):
+            payload = bytes(image)
+            if len(payload) != 400:
+                self.error_occurred.emit("Unexpected grayscale payload size")
+                return
+        else:
+            self.error_occurred.emit("Unsupported image input type")
             return
+        if payload == None: return  
 
         try:
-            self.serial_port.write((text + "\n").encode("utf-8"))
+            # Prepare state so incoming bytes are handled as a classification reply
+            self._rx_buffer.clear()
+            self._awaiting_task_reply = True
+            self._awaiting_task_header = True
+            self._current_task = self.Task.CLASSIFICATION
+            self._expected_image_size = 400
+
+            # Send command line then raw payload
+            self.serial_port.write(("CLASSIFY\n").encode())
+            self.serial_port.write(payload)
+            self.serial_port.flush()
         except serial.SerialException as exc:
-            self.error_occurred.emit(f"Failed to send text: {exc}")
+            self._reset_receive_state()
+            self.error_occurred.emit(f"Failed to submit image: {exc}")
             self.disconnected.emit()
 
-
     @QtCore.Slot(object, object)
-    def process_image_file(self, file_or_image, mode):
+    def process_image(self, image: QtGui.QImage, mode: str):
         """Submit an image for processing.
 
-        `file_or_image` may be:
-        - `str`: a filesystem path (legacy behaviour)
+        `image` may be:
         - `QtGui.QImage`: use directly
         - `bytes`/`bytearray`: raw 400-byte payload
 
@@ -139,8 +183,8 @@ class SerialWorker(QtCore.QObject):
         compatibility, a plain string command is also accepted.
         """
 
-        if self._awaiting_image_reply:
-            self.error_occurred.emit("Image processing request already in progress")
+        if self._current_task != self.Task.IDLE:
+            self.error_occurred.emit("Some task already in progress")
             return
 
         if not self._is_port_open():
@@ -150,12 +194,11 @@ class SerialWorker(QtCore.QObject):
         payload = None
 
         # Accept a file path, a QImage, or raw bytes/bytearray
-        if isinstance(file_or_image, str):
-            payload = self._load_20x20_grayscale_payload(file_or_image)
-        elif isinstance(file_or_image, QtGui.QImage):
-            payload = self._payload_from_qimage(file_or_image)
-        elif isinstance(file_or_image, (bytes, bytearray)):
-            payload = bytes(file_or_image)
+
+        if isinstance(image, QtGui.QImage):
+            payload = self._payload_from_qimage(image)
+        elif isinstance(image, (bytes, bytearray)):
+            payload = bytes(image)
             if len(payload) != 400:
                 self.error_occurred.emit("Unexpected grayscale payload size")
                 return
@@ -174,11 +217,13 @@ class SerialWorker(QtCore.QObject):
         try:
             # Prepare state so incoming bytes are handled as an image reply
             self._rx_buffer.clear()
-            self._awaiting_image_reply = True
-            self._awaiting_image_header = True
+            self._awaiting_task_reply = True
+            self._awaiting_task_header = True
+            self._current_task = self.Task.PROCESSING
             self._expected_image_size = 400
 
             # Send command line then raw payload
+            self.serial_port.write(("PROCESS\n").encode())
             self.serial_port.write((command + "\n").encode("utf-8"))
             self.serial_port.write(payload)
             self.serial_port.flush()
@@ -186,8 +231,13 @@ class SerialWorker(QtCore.QObject):
             self._reset_receive_state()
             self.error_occurred.emit(f"Failed to submit image: {exc}")
             self.disconnected.emit()
+# End Task Functions
+#===========================================================================
 
 
+#===========================================================================
+# Start Helper functions:
+#===========================================================================
     def _is_port_open(self):
         return self.serial_port is not None and self.serial_port.is_open
 
@@ -195,8 +245,9 @@ class SerialWorker(QtCore.QObject):
     def _reset_receive_state(self):
         """Clear receive buffer and reset reply-tracking flags."""
         self._rx_buffer.clear()
-        self._awaiting_image_reply = False
-        self._awaiting_image_header = False
+        self._awaiting_task_reply = False
+        self._awaiting_task_header = False
+        self._current_task = self.Task.IDLE
         self._expected_image_size = 0
 
 
@@ -219,37 +270,6 @@ class SerialWorker(QtCore.QObject):
         self.error_occurred.emit("Unsupported processing mode type")
         return None
 
-
-    def _load_20x20_grayscale_payload(self, file_path):
-        """Load an image file and convert to a 20x20 8-bit grayscale payload.
-
-        Returns bytes of length 400 on success, otherwise emits `error_occurred`
-        and returns `None`.
-        """
-
-        image = QtGui.QImage(file_path)
-        if image.isNull():
-            self.error_occurred.emit(f"Failed to load image: {file_path}")
-            return None
-
-        image = image.scaled(
-            20,
-            20,
-            QtCore.Qt.AspectRatioMode.IgnoreAspectRatio,
-            QtCore.Qt.TransformationMode.SmoothTransformation,
-        )
-        image = image.convertToFormat(QtGui.QImage.Format.Format_Grayscale8)
-
-        # Extract raw bytes from the QImage
-        bits = image.bits()
-        bits.setsize(image.sizeInBytes())
-        payload = bytes(bits)
-
-        if len(payload) != 400:
-            self.error_occurred.emit("Unexpected grayscale payload size")
-            return None
-
-        return payload
 
 
     def _payload_from_qimage(self, image: QtGui.QImage):
@@ -313,12 +333,12 @@ class SerialWorker(QtCore.QObject):
 
 
     def _drain_receive_buffer(self):
-        # Attempt to parse either an image reply (header + raw payload) or
-        # standalone newline-terminated text lines.
+        # Attempt to parse either an image reply (header + raw payload), a
+        # classification reply (header + CSV confidences), or standalone text.
         while self._rx_buffer:
-            # If we are expecting an image reply, first parse the header line
-            if self._awaiting_image_reply:
-                if self._awaiting_image_header:
+            # PROCESSING replies are a header line followed by 400 raw bytes.
+            if self._current_task == self.Task.PROCESSING and self._awaiting_task_reply:
+                if self._awaiting_task_header:
                     newline_index = self._rx_buffer.find(b"\n")
                     if newline_index < 0:
                         # header not complete yet
@@ -336,7 +356,7 @@ class SerialWorker(QtCore.QObject):
                         return
 
                     # Header consumed; next we await the fixed-size payload
-                    self._awaiting_image_header = False
+                    self._awaiting_task_header = False
                     continue
 
                 # Wait until we have the full raw payload
@@ -357,7 +377,56 @@ class SerialWorker(QtCore.QObject):
 
                 # Reset state and emit the image for the UI to consume
                 self._reset_receive_state()
-                self.image_received.emit(image)
+                self.processed_image_received.emit(image)
+                continue
+
+            # CLASSIFICATION replies are a header line followed by 10 CSV floats.
+            if self._current_task == self.Task.CLASSIFICATION and self._awaiting_task_reply:
+                if self._awaiting_task_header:
+                    newline_index = self._rx_buffer.find(b"\n")
+                    if newline_index < 0:
+                        return
+
+                    header = bytes(self._rx_buffer[:newline_index]).strip()
+                    del self._rx_buffer[: newline_index + 1]
+
+                    if header != b"OK":
+                        self._reset_receive_state()
+                        self.error_occurred.emit(
+                            f"Unexpected classification reply header: {header.decode(errors='ignore')}"
+                        )
+                        return
+
+                    self._awaiting_task_header = False
+                    continue
+
+                newline_index = self._rx_buffer.find(b"\n")
+                if newline_index < 0:
+                    return
+
+                line = bytes(self._rx_buffer[:newline_index]).strip()
+                del self._rx_buffer[: newline_index + 1]
+
+                try:
+                    confidences = [float(value) for value in line.decode(errors="ignore").split(",") if value.strip()]
+                except ValueError:
+                    self._reset_receive_state()
+                    self.error_occurred.emit(
+                        f"Invalid classification payload: {line.decode(errors='ignore')}"
+                    )
+                    return
+
+                if len(confidences) != 10:
+                    self._reset_receive_state()
+                    self.error_occurred.emit(
+                        f"Expected 10 classification values, got {len(confidences)}"
+                    )
+                    return
+
+                task = self._current_task
+                self._reset_receive_state()
+                if task == self.Task.CLASSIFICATION:
+                    self.classification_received.emit(confidences)
                 continue
 
             # Otherwise, parse a text line (non-image protocol)
@@ -370,11 +439,13 @@ class SerialWorker(QtCore.QObject):
 
             if line:
                 self.data_received.emit(line.decode(errors="ignore"))
+#===========================================================================
 
 
 class SerialManager(QtCore.QObject):
     data_received = QtCore.Signal(str)
-    image_received = QtCore.Signal(QtGui.QImage)
+    processed_image_received = QtCore.Signal(QtGui.QImage)
+    classification_received = QtCore.Signal(list)
     error_occurred = QtCore.Signal(str)
     port_opened = QtCore.Signal(str)
     port_closed = QtCore.Signal()
@@ -382,7 +453,7 @@ class SerialManager(QtCore.QObject):
 
     request_open_port = QtCore.Signal(str)
     request_close_port = QtCore.Signal()
-    request_send_text = QtCore.Signal(str)
+    request_classify_image = QtCore.Signal(object)
     # Accept an object (str file path, QtGui.QImage, or bytes/bytearray) plus the mode
     request_process_image = QtCore.Signal(object, str)
 
@@ -402,7 +473,8 @@ class SerialManager(QtCore.QObject):
         self.worker.moveToThread(self.worker_thread)
 
         self.worker.data_received.connect(self.data_received.emit)
-        self.worker.image_received.connect(self.image_received.emit)
+        self.worker.processed_image_received.connect(self.processed_image_received.emit)
+        self.worker.classification_received.connect(self.classification_received.emit)
         self.worker.error_occurred.connect(self.error_occurred.emit)
         self.worker.port_opened.connect(self.port_opened.emit)
         self.worker.port_closed.connect(self.port_closed.emit)
@@ -411,8 +483,8 @@ class SerialManager(QtCore.QObject):
 
         self.request_open_port.connect(self.worker.open_port)
         self.request_close_port.connect(self.worker.close_port)
-        self.request_send_text.connect(self.worker.send_text)
-        self.request_process_image.connect(self.worker.process_image_file)
+        self.request_classify_image.connect(self.worker.classify_image)
+        self.request_process_image.connect(self.worker.process_image)
 
         self.worker_thread.finished.connect(self._cleanup_worker)
         self.worker_thread.start()
@@ -431,22 +503,22 @@ class SerialManager(QtCore.QObject):
             self._cleanup_worker()
 
 
-    @QtCore.Slot(str)
-    def send(self, text):
-        if not self.worker:
-            self.error_occurred.emit("No serial port is open")
-            return
-
-        self.request_send_text.emit(text)
-
-
     @QtCore.Slot(object, str)
-    def process_image_file(self, file_path_or_image, mode):
+    def process_image(self, file_path_or_image, mode):
         if not self.worker:
             self.error_occurred.emit("No serial port is open")
             return
 
         self.request_process_image.emit(file_path_or_image, mode)
+
+
+    @QtCore.Slot(object)
+    def classify_image(self, image):
+        if not self.worker:
+            self.error_occurred.emit("No serial port is open")
+            return
+
+        self.request_classify_image.emit(image)
 
 
     @QtCore.Slot()
@@ -461,7 +533,7 @@ class SerialManager(QtCore.QObject):
             for signal in (
                 self.request_open_port,
                 self.request_close_port,
-                self.request_send_text,
+                self.request_classify_image,
                 self.request_process_image,
             ):
                 try:

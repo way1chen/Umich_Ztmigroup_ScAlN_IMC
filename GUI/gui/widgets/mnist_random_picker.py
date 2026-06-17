@@ -13,6 +13,7 @@ class MnistRandomPicker(QtWidgets.QWidget):
     """Pick a random image from the MNIST test set and emit it as QImage."""
 
     image_picked = QtCore.Signal(QtGui.QImage)
+    digit_picked = QtCore.Signal(int)
     error_occurred = QtCore.Signal(str)
 
     def __init__(self, parent=None):
@@ -133,6 +134,7 @@ class MnistRandomPicker(QtWidgets.QWidget):
 
             sample = samples[0]
             self.image_picked.emit(sample.image)
+            self.digit_picked.emit(int(sample.label))
             self.status_label.setText(
                 f"Loaded test sample index {sample_index} (digit {sample.label})."
             )

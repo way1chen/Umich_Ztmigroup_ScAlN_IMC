@@ -161,50 +161,60 @@ class _EditCanvas(QtWidgets.QWidget):
         rel_x = (point.x() - image_rect.x()) / max(self.zoom_factor, 1e-6)
         rel_y = (point.y() - image_rect.y()) / max(self.zoom_factor, 1e-6)
 
-        image_x = int(rel_x)
-        image_y = int(rel_y)
+        image_x = rel_x
+        image_y = rel_y
+
+
 
         image_x = max(0, min(image_x, self.image.width() - 1))
         image_y = max(0, min(image_y, self.image.height() - 1))
-        return QtCore.QPoint(image_x, image_y)
+        return image_x, image_y
 
     def _brush_radius_in_image_pixels(self):
-        return max(0, int(round(self.brush_radius / max(self.zoom_factor, 1e-6))))
+        return max(0, self.brush_radius / max(self.zoom_factor, 1e-6))
 
-    def _paint_image_pixel(self, image_x, image_y):
+    def _paint_image_pixel(self, image_x, image_y, alpha):
         if image_x < 0 or image_y < 0:
             return
         if image_x >= self.image.width() or image_y >= self.image.height():
             return
 
+        current_value = QtGui.QColor(self.image.pixel(image_x, image_y)).red()
+        new_value = max(0, min(current_value * (1 - alpha) + self.brush_value * alpha, 255))
+
         self.image.setPixelColor(
             image_x,
             image_y,
-            QtGui.QColor(self.brush_value, self.brush_value, self.brush_value),
+            QtGui.QColor(new_value, new_value, new_value),
         )
 
     def _paint_at(self, point):
         if not self.edit_enabled or self.image is None or self.image.isNull():
             return
 
-        image_point = self._widget_point_to_image_point(point)
-        if image_point is None:
-            return
+        center_x, center_y = self._widget_point_to_image_point(point)
 
-        radius = self._brush_radius_in_image_pixels()
-        center_x = image_point.x()
-        center_y = image_point.y()
+        radius = max(1, self._brush_radius_in_image_pixels())
+        print(self._brush_radius_in_image_pixels())
+        print(radius)
 
-        if radius <= 0:
-            self._paint_image_pixel(center_x, center_y)
-        else:
-            radius_squared = radius * radius
-            for image_y in range(center_y - radius, center_y + radius + 1):
-                for image_x in range(center_x - radius, center_x + radius + 1):
-                    delta_x = image_x - center_x
-                    delta_y = image_y - center_y
-                    if delta_x * delta_x + delta_y * delta_y <= radius_squared:
-                        self._paint_image_pixel(image_x, image_y)
+        # print(f"{center_x}, {center_y}")
+
+        for image_y in range(int(center_y - radius), int(center_y + radius + 1)):
+            for image_x in range(int(center_x - radius), int(center_x + radius + 1)):
+                delta_x = (image_x + 0.5) - center_x
+                delta_y = (image_y + 0.5) - center_y
+                distance_squared = delta_x * delta_x + delta_y * delta_y
+
+
+                normalized_distance = (distance_squared ** 0.5) / radius
+                falloff = max(0.0, 1.0 - normalized_distance)
+                print(falloff)
+                
+
+        
+
+                self._paint_image_pixel(image_x, image_y, falloff)
 
         self.update()
         self.image_changed.emit(self.image)
@@ -344,6 +354,8 @@ class EditPanel(QtWidgets.QWidget):
         self.fit_button.setText("Fit")
         self.reset_button = QtWidgets.QToolButton()
         self.reset_button.setText("100%")
+        self.blank_canvas_button = QtWidgets.QToolButton()
+        self.blank_canvas_button.setText("Blank Canvas")
         self.pixel_grid_toggle = QtWidgets.QCheckBox("Show pixel grid")
         self.pixel_grid_toggle.setChecked(False)
         self.zoom_label = QtWidgets.QLabel("Zoom: 100%")
@@ -359,6 +371,7 @@ class EditPanel(QtWidgets.QWidget):
         toolbar_layout.addWidget(self.zoom_in_button)
         toolbar_layout.addWidget(self.fit_button)
         toolbar_layout.addWidget(self.reset_button)
+        toolbar_layout.addWidget(self.blank_canvas_button)
         toolbar_layout.addWidget(self.pixel_grid_toggle)
         toolbar_layout.addStretch(1)
         toolbar_layout.addWidget(self.zoom_label)
@@ -376,6 +389,7 @@ class EditPanel(QtWidgets.QWidget):
         self.zoom_out_button.pressed.connect(self.canvas.zoom_out)
         self.fit_button.pressed.connect(self.canvas.fit_to_view)
         self.reset_button.pressed.connect(self.canvas.reset_view)
+        self.blank_canvas_button.pressed.connect(self.create_blank_canvas)
         self.pixel_grid_toggle.toggled.connect(self.canvas.set_pixel_grid_visible)
 
         self.canvas.image_changed.connect(self.image_changed.emit)
@@ -407,6 +421,11 @@ class EditPanel(QtWidgets.QWidget):
 
     def clear_image(self):
         self.canvas.clear_image()
+
+    def create_blank_canvas(self):
+        blank_image = QtGui.QImage(20, 20, QtGui.QImage.Format.Format_Grayscale8)
+        blank_image.fill(0)
+        self.set_image(blank_image)
 
     def set_edit_enabled(self, enabled):
         self.canvas.set_edit_enabled(enabled)
