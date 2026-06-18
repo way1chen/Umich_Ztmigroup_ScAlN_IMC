@@ -156,7 +156,7 @@ class _EditCanvas(QtWidgets.QWidget):
     def _widget_point_to_image_point(self, point):
         image_rect = self._image_rect()
         if image_rect is None or not image_rect.contains(QtCore.QPointF(point)):
-            return None
+            return 0, 0
 
         rel_x = (point.x() - image_rect.x()) / max(self.zoom_factor, 1e-6)
         rel_y = (point.y() - image_rect.y()) / max(self.zoom_factor, 1e-6)
@@ -195,10 +195,10 @@ class _EditCanvas(QtWidgets.QWidget):
         center_x, center_y = self._widget_point_to_image_point(point)
 
         radius = max(1, self._brush_radius_in_image_pixels())
-        print(self._brush_radius_in_image_pixels())
-        print(radius)
 
-        # print(f"{center_x}, {center_y}")
+        
+
+     
 
         for image_y in range(int(center_y - radius), int(center_y + radius + 1)):
             for image_x in range(int(center_x - radius), int(center_x + radius + 1)):
@@ -209,7 +209,7 @@ class _EditCanvas(QtWidgets.QWidget):
 
                 normalized_distance = (distance_squared ** 0.5) / radius
                 falloff = max(0.0, 1.0 - normalized_distance)
-                print(falloff)
+               
                 
 
         
@@ -409,8 +409,9 @@ class EditPanel(QtWidgets.QWidget):
     def _update_state_label(self):
         screen_radius = self.canvas.brush_radius
         image_radius = self.canvas._brush_radius_in_image_pixels()
+
         self.state_label.setText(
-            f"Brush: {screen_radius:.0f}px screen / {image_radius}px image"
+            f"Brush: {screen_radius:.0f}px screen / {image_radius:.2f}px image"
         )
 
     def set_image(self, image):

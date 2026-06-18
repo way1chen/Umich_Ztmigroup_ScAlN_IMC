@@ -10,6 +10,9 @@ from gui.widgets.preview_util import preview_widget
 
 
 class {class_name}(QtWidgets.QWidget):
+
+    error_occurred = QtCore.Signal(str)
+
     def __init__(self, parent=None):
         super().__init__(parent)
 

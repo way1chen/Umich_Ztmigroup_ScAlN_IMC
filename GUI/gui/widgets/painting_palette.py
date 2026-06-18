@@ -6,6 +6,7 @@ class PaintingPalette(QtWidgets.QWidget):
     paint_enabled_changed = QtCore.Signal(bool)
     brush_size_changed = QtCore.Signal(int)
     brush_value_changed = QtCore.Signal(int)
+    error_occurred = QtCore.Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)

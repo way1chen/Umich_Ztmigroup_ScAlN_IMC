@@ -6,6 +6,7 @@ from gui.widgets.preview_util import preview_widget
 class PortChooser(QtWidgets.QWidget):
 
     port_chosen = QtCore.Signal(str)
+    error_occurred = QtCore.Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -55,6 +56,9 @@ class PortChooser(QtWidgets.QWidget):
     @QtCore.Slot()
     def connect_pushed(self):
         selected_index = self.list.currentRow()
+        if(selected_index == -1):
+            self.error_occurred.emit("No Port Selected")
+            return
         self.port_chosen.emit(self.devices[selected_index])
 
     def sizeHint(self):

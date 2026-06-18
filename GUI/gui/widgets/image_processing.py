@@ -68,8 +68,11 @@ class ImageProcessing(QtWidgets.QWidget):
         self.sidebar.brush_value_changed.connect(self.input_image.set_brush_value)
         self.sidebar.mode_changed.connect(self.handle_mode_changed)
         self.sidebar.submit_requested.connect(self.handle_submit_requested)
-        self.sidebar.error_occurred.connect(self.error_occurred.emit)
 
+        #Error Reporting
+        self.sidebar.error_occurred.connect(self.error_occurred.emit)
+        self.input_image.error_occurred.connect(self.error_occurred.emit)
+        self.output_image.error_occurred.connect(self.error_occurred.emit)
 
     @QtCore.Slot(QtGui.QImage)
     def receive_processed_image(self, image):

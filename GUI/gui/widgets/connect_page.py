@@ -39,6 +39,8 @@ class ConnectPage(QtWidgets.QWidget):
 
         self.port_chooser.port_chosen.connect(self.request_open_port.emit)
 
+        self.port_chooser.error_occurred.connect(self.error_occurred.emit)
+
 
 
 def preview():

@@ -57,6 +57,7 @@ class ImageProcessingSidebar(QtWidgets.QWidget):
         self.mode_select.currentTextChanged.connect(self.handle_mode_changed)
         self.submit_button.pressed.connect(self.request_submit)
         self.mnist_picker.error_occurred.connect(self.error_occurred.emit)
+        self.painting_palette.error_occurred.connect(self.error_occurred.emit)
 
    
 

@@ -64,7 +64,7 @@ class MainApplication(QtWidgets.QWidget):
 
         # Shared classification flow.
         self.image_classification.request_classification.connect(self.serial_manager.classify_image)
-        self.image_classification.error_occured.connect(self._handle_error)
+        self.image_classification.error_occurred.connect(self._handle_error)
         self.serial_manager.classification_received.connect(self.image_classification.receive_results)
 
         self._handle_port_closed()
@@ -87,7 +87,7 @@ class MainApplication(QtWidgets.QWidget):
     
     @QtCore.Slot(str)
     def _handle_error(self, message):
-        QtWidgets.QMessageBox.critical(self, "Application Error", message)
+        QtWidgets.QMessageBox.critical(self, "Error", message)
 
 
 def preview():

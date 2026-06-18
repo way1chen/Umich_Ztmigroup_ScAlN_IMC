@@ -3,6 +3,9 @@ from gui.widgets.preview_util import preview_widget
 
 
 class ImageView(QtWidgets.QWidget):
+
+    error_occurred = QtCore.Signal(str)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.image = None
@@ -11,15 +14,22 @@ class ImageView(QtWidgets.QWidget):
 
 
     def set_image(self, image):
+        if not isinstance(image, QtGui.QImage):
+            self.error_occurred.emit("Valid QImage was not provided from ImageView")
         self.image = image
         self.update()
 
     def open_image_file(self, file_path):
         if not file_path:
+            self.error_occurred.emit("No filepath provided")
             return
-
-        img = QtGui.QImage(file_path)
+        try:
+            img = QtGui.QImage(file_path)
+        except:
+            self.error_occurred.emit(f"Unable to open image file: {file_path}")
+            return
         if img.isNull():
+            self.error_occurred.emit(f"Unable to open image file: {file_path}")
             return
 
         self.set_image(img.convertToFormat(QtGui.QImage.Format.Format_Grayscale8))

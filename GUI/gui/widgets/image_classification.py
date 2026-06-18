@@ -7,7 +7,7 @@ from gui.widgets.image_classification_sidebar import ImageClassificationSidebar
 
 class ImageClassification(QtWidgets.QWidget):
 
-    error_occured = QtCore.Signal(str)
+    error_occurred = QtCore.Signal(str)
     request_classification = QtCore.Signal(QtGui.QImage)
 
     def __init__(self, parent=None):
@@ -56,9 +56,11 @@ class ImageClassification(QtWidgets.QWidget):
         self.sidebar.brush_value_changed.connect(self.input_image.set_brush_value)
         self.input_image.image_changed.connect(self.sidebar.set_selected_image)
         self.sidebar.mnist_picker.digit_picked.connect(self.results_panel.set_actual_digit)
-        self.sidebar.submit_requested.connect(self.handel_submit_requested)
+        self.sidebar.submit_requested.connect(self.handle_submit_requested)
 
-        self.input_image.error_occurred.connect(self.error_occured.emit)
+        self.input_image.error_occurred.connect(self.error_occurred.emit)
+        self.sidebar.error_occurred.connect(self.error_occurred.emit)
+        self.results_panel.error_occurred.connect(self.error_occurred.emit)
 
         
 
@@ -74,12 +76,13 @@ class ImageClassification(QtWidgets.QWidget):
     @QtCore.Slot()
     def receive_results(self, results):
         if results is None:
-            self.error_occured.emit("Results were Null")
+            self.error_occurred.emit("Results were Null")
         self.results_panel.set_confidences(results)
 
     @QtCore.Slot()
-    def handel_submit_requested(self):
+    def handle_submit_requested(self):
         current = self.input_image.current_image()
+
         if isinstance(current, QtGui.QImage) and not current.isNull():
             self.request_classification.emit(current)
             return
