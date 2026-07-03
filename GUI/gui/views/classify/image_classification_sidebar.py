@@ -1,7 +1,7 @@
 from PySide6 import QtWidgets, QtCore, QtGui
 from gui.widgets.mnist_random_picker import MnistRandomPicker
 from gui.widgets.painting_palette import PaintingPalette
-from gui.widgets.preview_util import preview_widget
+from gui.core.preview_util import preview_widget
 
 
 class ImageClassificationSidebar(QtWidgets.QWidget):

@@ -1,7 +1,7 @@
 from collections.abc import Mapping
 
 from PySide6 import QtWidgets, QtCore
-from gui.widgets.preview_util import preview_widget
+from gui.core.preview_util import preview_widget
 
 
 class ClassificationResultsPanel(QtWidgets.QWidget):

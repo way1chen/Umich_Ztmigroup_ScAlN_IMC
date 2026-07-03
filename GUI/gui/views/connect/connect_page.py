@@ -1,7 +1,7 @@
 from PySide6 import QtWidgets, QtCore
 from gui.widgets.connection_monitor import ConnectionMonitor
-from gui.widgets.port_chooser import PortChooser
-from gui.widgets.preview_util import preview_widget
+from gui.views.connect.port_chooser import PortChooser
+from gui.core.preview_util import preview_widget
 
 
 class ConnectPage(QtWidgets.QWidget):

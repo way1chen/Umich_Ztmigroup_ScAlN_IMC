@@ -1,9 +1,9 @@
 from PySide6 import QtWidgets, QtCore, QtGui
 from gui.widgets.image_view import ImageView
 from gui.widgets.edit_panel import EditPanel
-from gui.widgets.image_processing_sidebar import ImageProcessingSidebar
-from gui.widgets.processing_mode import ProcessingMode
-from gui.widgets.preview_util import preview_widget
+from gui.views.process.image_processing_sidebar import ImageProcessingSidebar
+from gui.views.process.processing_mode import ProcessingMode
+from gui.core.preview_util import preview_widget
 
 
 class ImageProcessing(QtWidgets.QWidget):

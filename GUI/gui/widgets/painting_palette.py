@@ -1,5 +1,5 @@
 from PySide6 import QtWidgets, QtCore, QtGui
-from gui.widgets.preview_util import preview_widget
+from gui.core.preview_util import preview_widget
 
 
 class PaintingPalette(QtWidgets.QWidget):
@@ -16,7 +16,7 @@ class PaintingPalette(QtWidgets.QWidget):
 
         self.brush_size_label = QtWidgets.QLabel("Brush Size")
         self.brush_size_select = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
-        self.brush_size_select.setRange(1, 32)
+        self.brush_size_select.setRange(10, 42)
         self.brush_size_select.setTickPosition(QtWidgets.QSlider.TickPosition.TicksBelow)
         self.brush_size_select.setTickInterval(1)
         self.brush_size_select.setSingleStep(1)

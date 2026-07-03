@@ -1,8 +1,8 @@
 from PySide6 import QtWidgets, QtCore, QtGui
-from gui.widgets.preview_util import preview_widget
+from gui.core.preview_util import preview_widget
 from gui.widgets.edit_panel import EditPanel
-from gui.widgets.classification_results_panel import ClassificationResultsPanel
-from gui.widgets.image_classification_sidebar import ImageClassificationSidebar
+from gui.views.classify.classification_results_panel import ClassificationResultsPanel
+from gui.views.classify.image_classification_sidebar import ImageClassificationSidebar
 
 
 class ImageClassification(QtWidgets.QWidget):

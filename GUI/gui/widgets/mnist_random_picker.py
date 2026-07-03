@@ -6,7 +6,7 @@ from pathlib import Path
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from gui.utils.mnist_idx import load_mnist_labels, load_mnist_samples
-from gui.widgets.preview_util import preview_widget
+from gui.core.preview_util import preview_widget
 
 
 class MnistRandomPicker(QtWidgets.QWidget):

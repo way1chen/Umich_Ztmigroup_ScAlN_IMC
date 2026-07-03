@@ -1,5 +1,5 @@
 from PySide6 import QtWidgets, QtGui, QtCore
-from gui.widgets.preview_util import preview_widget
+from gui.core.preview_util import preview_widget
 
 
 class SerialMonitor(QtWidgets.QWidget):

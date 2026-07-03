@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from PySide6 import QtWidgets, QtCore
 from gui.widgets.connection_monitor import ConnectionMonitor
-from gui.widgets.preview_util import preview_widget
+from gui.core.preview_util import preview_widget
 
 
 class ApplicationTopBar(QtWidgets.QWidget):

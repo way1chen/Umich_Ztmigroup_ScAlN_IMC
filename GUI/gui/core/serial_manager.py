@@ -2,7 +2,7 @@ from PySide6 import QtCore, QtGui
 import serial
 from enum import Enum
 
-from gui.widgets.processing_mode import ProcessingMode
+from gui.views.process.processing_mode import ProcessingMode
 
 """Serial manager for communicating with the image-processing MCU.
 
@@ -134,7 +134,7 @@ class SerialWorker(QtCore.QObject):
             self.error_occurred.emit("Some task already in progress")
             return
         if not self._is_port_open():
-            self.error_occurred.emit("No serial port is open")
+            self.error_occurred.emit("No serial port is open 1")
             return 
 
         
@@ -188,7 +188,7 @@ class SerialWorker(QtCore.QObject):
             return
 
         if not self._is_port_open():
-            self.error_occurred.emit("No serial port is open")
+            self.error_occurred.emit("No serial port is open 2")
             return
 
         payload = None
@@ -292,8 +292,14 @@ class SerialWorker(QtCore.QObject):
         img = img.convertToFormat(QtGui.QImage.Format.Format_Grayscale8)
 
         bits = img.bits()
-        bits.setsize(img.sizeInBytes())
-        payload = bytes(bits)
+        # PySide6 may expose bits() as a shiboken buffer or a memoryview.
+        if hasattr(bits, "setsize"):
+            bits.setsize(img.sizeInBytes())
+            payload = bytes(bits)
+        elif hasattr(bits, "tobytes"):
+            payload = bits.tobytes()
+        else:
+            payload = bytes(bits)
 
         if len(payload) != 400:
             self.error_occurred.emit("Unexpected grayscale payload size")
@@ -455,7 +461,7 @@ class SerialManager(QtCore.QObject):
     request_close_port = QtCore.Signal()
     request_classify_image = QtCore.Signal(object)
     # Accept an object (str file path, QtGui.QImage, or bytes/bytearray) plus the mode
-    request_process_image = QtCore.Signal(object, str)
+    request_process_image = QtCore.Signal(object, object)
 
     def __init__(self):
         super().__init__()
@@ -479,7 +485,6 @@ class SerialManager(QtCore.QObject):
         self.worker.port_opened.connect(self.port_opened.emit)
         self.worker.port_closed.connect(self.port_closed.emit)
         self.worker.disconnected.connect(self._handle_worker_disconnect)
-        self.worker.port_closed.connect(self.worker_thread.quit)
 
         self.request_open_port.connect(self.worker.open_port)
         self.request_close_port.connect(self.worker.close_port)
@@ -498,15 +503,16 @@ class SerialManager(QtCore.QObject):
 
         try:
             self.request_close_port.emit()
+            self.worker_thread.quit()
             self.worker_thread.wait()
         finally:
             self._cleanup_worker()
 
 
-    @QtCore.Slot(object, str)
+    @QtCore.Slot(object, object)
     def process_image(self, file_path_or_image, mode):
         if not self.worker:
-            self.error_occurred.emit("No serial port is open")
+            self.error_occurred.emit("No serial port is open 3")
             return
 
         self.request_process_image.emit(file_path_or_image, mode)
@@ -515,7 +521,7 @@ class SerialManager(QtCore.QObject):
     @QtCore.Slot(object)
     def classify_image(self, image):
         if not self.worker:
-            self.error_occurred.emit("No serial port is open")
+            self.error_occurred.emit("No serial port is open 4")
             return
 
         self.request_classify_image.emit(image)

@@ -1,11 +1,11 @@
 from PySide6 import QtWidgets, QtCore
 
 from gui.widgets.application_top_bar import ApplicationTopBar
-from gui.widgets.connect_page import ConnectPage
-from gui.widgets.image_classification import ImageClassification
-from gui.widgets.image_processing import ImageProcessing
-from gui.widgets.serial_manager import SerialManager
-from gui.widgets.preview_util import preview_widget
+from gui.views.connect.connect_page import ConnectPage
+from gui.views.classify.image_classification import ImageClassification
+from gui.views.process.image_processing import ImageProcessing
+from gui.core.serial_manager import SerialManager
+from gui.core.preview_util import preview_widget
 
 
 class MainApplication(QtWidgets.QWidget):
