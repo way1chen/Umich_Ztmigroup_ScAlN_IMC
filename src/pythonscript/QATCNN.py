@@ -31,66 +31,19 @@ Thus QAT becomes more attractive since it accounts for these quantizations and l
 '''
 
 # Max pulse we want to use for 255 aka white pixel
-MAX_LEVEL = 32
+MAX_LEVEL = 16
 
 # two digits I want to classify
 CLASS_A = 4
 CLASS_B = 9
 
 # Conductance range and how many levels to program
-G_MIN = 1  # µS
-G_MAX = 8  # µS
-WEIGHT_LEVELS = 8  # codes 0-7
+G_MIN = 0.045  # uS
+G_MAX = 0.07  # uS
+WEIGHT_LEVELS = 9   # originally 4
 
-# Load MNIST data for training and test
-# =========================================================================
-
-SEED=17
-random.seed(SEED)
-np.random.seed(SEED)
-torch.manual_seed(SEED)
-if torch.cuda.is_available():
-    torch.cuda.manual_seed(SEED)
-    torch.cuda.manual_seed_all(SEED)
-
-torch.backends.cudnn.deterministic = True
-torch.backends.cudnn.benchmark = False
-torch.use_deterministic_algorithms(True)
-
-# mnist is 28 x 28
-
-transform = transforms.Compose([
-    transforms.ToTensor(),
-    # transforms.Lambda(lambda x: torch.floor(x * 31) / 31) # mnist greyscale is originally 0 to 255, but this quantizes it down to 0 to 31.
-])
-
-training_data = torchvision.datasets.MNIST(
-    root = "data",
-    train= True,
-    download=False, # set to True if first time running
-    transform=transform
-)
-
-# filtering out just 0's and 1's for now.
-zerosandones = [i for i in range(len(training_data)) if training_data.targets[i] in [CLASS_A,CLASS_B]]
-filtered_training_data = torch.utils.data.Subset(training_data,zerosandones)
-
-g = torch.Generator()
-g.manual_seed(SEED)
-trainloader = torch.utils.data.DataLoader(filtered_training_data, batch_size=4, shuffle=True, num_workers=0, generator=g)
-
-test_data = torchvision.datasets.MNIST(
-    root = "data",
-    train = False,
-    download = False,
-    transform=transform
-)
-
-zerosandones_hat = [i for i in range(len(test_data)) if test_data.targets[i] in [CLASS_A,CLASS_B]]
-filtered_test_data = torch.utils.data.Subset(test_data, zerosandones_hat)
-
-testloader = torch.utils.data.DataLoader(filtered_test_data, batch_size=4, shuffle=False, num_workers=0)
-
+#hardware calibration validation set
+VAL_PER_CLASS = 200
 
 # Quantization Logic
 # ================================================================================
@@ -112,8 +65,9 @@ def quantization(x, max_input, min_input, MAXLEVEL=MAX_LEVEL):
 # ================================================================================
 
 # 28x28×1
-# → Conv2d(1, 8, 3) + ReLU + MaxPool(2)    → 24×24×8 (28x28 -> 26x26 due to 3x3 kernel conv, then 13x13 due to maxpool of stride 2)
-# → Conv2d(8, 16, 3) + ReLU + MaxPool(2)   → 5×5×16
+# → Conv2d(1, 8, 3) + ReLU + MaxPool(2)    → 26×26×8 (28x28 -> 26x26 due to 3x3 kernel conv, then 13x13 due to maxpool of stride 2)
+                                            # then 13x13x8
+# → Conv2d(8, 16, 3) + ReLU + MaxPool(2)   → 11x11x16 to 5×5×16
 # → Flatten                                 → 400
 # → FC(400, 9) + ReLU                        → 9     ← these 9 go to crossbar
 # → FC(9, 2)                                → 2     ← this IS the crossbar
@@ -124,8 +78,8 @@ class CNN(nn.Module):
         self.conv1 = nn.Conv2d(1,8,3) # conv2d(in channel, out channel, kernel size)
         self.pool = nn.MaxPool2d(2,2)
         self.conv2 = nn.Conv2d(8,16,3)
-        self.fc1 = nn.Linear(5*5*16, 9) 
-        self.fc2 = nn.Linear(9,2, bias=False) 
+        self.fc1 = nn.Linear(5*5*16, 6) 
+        self.fc2 = nn.Linear(6,2, bias=False) 
         self.register_buffer("act_max", torch.tensor(0.0))
 
     def get_fcl1_output(self, x):
@@ -158,6 +112,93 @@ class CNN(nn.Module):
         return x
 
 if __name__ == '__main__':  # things inside this are ignored when this module is called from another file  
+
+    # Load MNIST data for training and test
+    # =========================================================================
+
+    SEED=17
+    random.seed(SEED)
+    np.random.seed(SEED)
+    torch.manual_seed(SEED)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(SEED)
+        torch.cuda.manual_seed_all(SEED)
+
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    torch.use_deterministic_algorithms(True)
+
+    # mnist is 28 x 28
+
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        # transforms.Lambda(lambda x: torch.floor(x * 31) / 31) # mnist greyscale is originally 0 to 255, but this quantizes it down to 0 to 31.
+    ])
+
+    training_data = torchvision.datasets.MNIST(
+        root = "data",
+        train= True,
+        download=False, # set to True if first time running
+        transform=transform
+    )
+
+    # filtering out just 0's and 1's for now.
+    zerosandones = [i for i in range(len(training_data)) if training_data.targets[i] in [CLASS_A,CLASS_B]]
+
+    g = torch.Generator()
+    g.manual_seed(SEED)
+    train_targets = training_data.targets.numpy()
+
+    class_a_indices = np.flatnonzero(train_targets == CLASS_A)
+    class_b_indices = np.flatnonzero(train_targets == CLASS_B)
+
+    rng = np.random.default_rng(SEED)
+    rng.shuffle(class_a_indices)
+    rng.shuffle(class_b_indices)
+
+    # These 400 images receive no gradient updates.
+    validation_indices = np.concatenate([
+        class_a_indices[:VAL_PER_CLASS],
+        class_b_indices[:VAL_PER_CLASS],
+    ])
+
+    # Remaining 11,391 images train the CNN.
+    training_indices = np.concatenate([
+        class_a_indices[VAL_PER_CLASS:],
+        class_b_indices[VAL_PER_CLASS:],
+    ])
+
+    rng.shuffle(validation_indices)
+    rng.shuffle(training_indices)
+
+    filtered_training_data = torch.utils.data.Subset(
+        training_data,
+        training_indices.tolist(),
+    )
+
+    validation_data = torch.utils.data.Subset(
+        training_data,
+        validation_indices.tolist(),
+    )
+
+    trainloader = torch.utils.data.DataLoader(
+        filtered_training_data,
+        batch_size=4,
+        shuffle=True,
+        num_workers=0,
+        generator=g,
+    )
+
+    validationloader = torch.utils.data.DataLoader(
+        validation_data,
+        batch_size=4,
+        shuffle=False,
+        num_workers=0,
+    )
+
+
+    # Start the model. 
+    # ==============================
     net = CNN()
 
     lossfx = nn.CrossEntropyLoss()
@@ -184,18 +225,6 @@ if __name__ == '__main__':  # things inside this are ignored when this module is
 
     print('Finished Training')
 
-    # save the model states
-    torch.save({
-    "state_dict": net.state_dict(),
-    "class_a": CLASS_A,
-    "class_b": CLASS_B,
-    "max_level": MAX_LEVEL,
-    "weight_levels": WEIGHT_LEVELS,
-    "g_min": G_MIN,
-    "g_max": G_MAX,
-    }, "qatcnn_checkpoint.pt")
-
-
     #print(net.fc2.weight.detach().cpu().numpy())
     #print(net.fc2.bias.detach().cpu().numpy())
 
@@ -208,7 +237,7 @@ if __name__ == '__main__':  # things inside this are ignored when this module is
     misclassified = []
     with torch.no_grad():
         # loop through batches of test data 
-        for data in testloader: 
+        for data in validationloader: 
             # image and label pair for each mnist digit
             images, labels = data 
             labels = (labels == CLASS_B).long()
@@ -253,18 +282,38 @@ if __name__ == '__main__':  # things inside this are ignored when this module is
         print("Weight codes:")
         print(weight_codes.cpu().numpy().astype(int))
         print("Offset code:", int(offset_code.item()))
-        print("Conductance targets (µS):")
+        print("Conductance targets (S):")
         print(conductance_targets.cpu().numpy() * 0.000001)
-        print("Offset conductance (µS):", float(offset_conductance) * 0.000001)
+        print("Offset conductance (S):", float(offset_conductance) * 0.000001)
+
+
+    # save the model states
+    # =================================================
+    torch.save({
+    "state_dict": net.state_dict(),
+    "class_a": CLASS_A,
+    "class_b": CLASS_B,
+    "max_level": MAX_LEVEL,
+    "weight_levels": WEIGHT_LEVELS,
+    "g_min": G_MIN,
+    "g_max": G_MAX,
+    "validation_indices": torch.tensor(
+        validation_indices,
+        dtype=torch.int64,
+    ),
+
+    "conductance_targets": conductance_targets.cpu().numpy() * 0.000001
+
+    }, "qatcnn_checkpoint.pt")
 
     # visualizing the misclassified images
-    for imgs, preds, labs in misclassified:
-        for k in range(imgs.size(0)):
-            plt.imshow(imgs[k].squeeze(), cmap='gray')
-            pred_label = CLASS_A if preds[k].item() == 0 else CLASS_B
-            actual_label = CLASS_A if labs[k].item() == 0 else CLASS_B
-            plt.title(f'Predicted: {pred_label}, Actual: {actual_label}')
-            plt.show()
+    # for imgs, preds, labs in misclassified:
+    #     for k in range(imgs.size(0)):
+    #         plt.imshow(imgs[k].squeeze(), cmap='gray')
+    #         pred_label = CLASS_A if preds[k].item() == 0 else CLASS_B
+    #         actual_label = CLASS_A if labs[k].item() == 0 else CLASS_B
+    #         plt.title(f'Predicted: {pred_label}, Actual: {actual_label}')
+    #         plt.show()
 
     
     

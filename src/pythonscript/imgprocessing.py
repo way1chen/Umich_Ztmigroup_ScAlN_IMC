@@ -20,7 +20,7 @@ We will be using 100x100 grayscale images and pass it through different kernels 
 # mnist is 28 x 28
 # but we are using 100x100 images, so we much resize it
 transformto100x100 = transforms.Compose([
-    transforms.Resize((20,20)),
+    transforms.Resize((28,28)),
     transforms.ToTensor()
 ])
 training_data = torchvision.datasets.MNIST(
@@ -34,17 +34,24 @@ training_data = torchvision.datasets.MNIST(
 #kernel = [[-1,-1,-1],[0,0,0],[1,1,1]]
 #kernel = [[1/9,1/9,1/9],[1/9,1/9,1/9],[1/9,1/9,1/9]]
 #kernel = (1/16)*np.array([[1,2,1],[2,4,2],[1,2,1]])
-#kernel =  np.array([[-1, 0 ,1], [-1, 0, 1],[-1, 0 ,1]])
+kernel =  np.array([[-1, 0 ,1], [-1, 0, 1],[-1, 0 ,1]])
 
 # kernel = [[0,0,0],[1,1,1],[2,2,2]]
 
 # offset = [[1,1,1],[1,1,1],[1,1,1]]
 
-# kernel = [[1,3],[3,1]]
 
 # kernel = [[1,2,1],[2,3,2],[1,2,1]]
 
-kernel = [[1,2],[2,3]]
+# kernel = 0.7*np.array([
+#     [3.5,4.5,3.5],
+#     [4.5, 5.5, 4.5],
+#     [3.5, 4.5, 3.5]
+# ], dtype=np.float32)
+# kernel = [[-1,-1],[0,0],[1,1]]
+#kernel = [[-1,0,1],[-1,0,1]]
+
+# kernel = kernel / np.sum(kernel)
 
 filtered = []
 
