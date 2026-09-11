@@ -10,5 +10,10 @@ void run_mnist_test_realarray(String patch, bool use_offset);
 
 void run_cnn_test_resistor(String patch);
 
+void run_cnn_set_weights(String patch);
+
+void run_cnn_test_onecol(String patch);
+void run_cnn_set_weights_onecol(String patch);
+
 
 #endif

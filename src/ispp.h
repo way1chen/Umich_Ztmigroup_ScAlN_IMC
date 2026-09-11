@@ -10,7 +10,7 @@ struct IsppParams {
   float v_max;
   float tolerance;
   float pulse_length;
-  uint8_t max_pulses;
+  uint16_t max_pulses;
 
 };
 
@@ -18,7 +18,7 @@ struct IsppResult {
   float final_readback;
   float target;
   float last_write_voltage;
-  uint8_t cycles_used;
+  uint16_t cycles_used;
   bool success;
 };
 

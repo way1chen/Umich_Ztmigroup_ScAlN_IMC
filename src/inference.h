@@ -14,6 +14,7 @@ struct InferenceParams {
   float v_read;
   uint32_t t_unit_us;
   uint8_t max_scale; // the downsampled range from 0-255 -> 0-max_scale
+  uint8_t baseline_row;
   bool use_offset;
 };
 
@@ -27,6 +28,8 @@ float run_parallel_inference(const uint8_t input_levels[12], const InferencePara
 InferenceResults run_parallel_inference_nointe(const uint8_t input_levels[12], const InferenceParams& params);
 InferenceResults run_parallel_inference_nointe_real_array(const uint8_t input_levels[12], const InferenceParams& params);
 InferenceResults run_parallel_inference_nointe_CNN(const uint8_t input_levels[12], const InferenceParams& params);
+InferenceResults run_parallel_inference_nointe_CNN_onecol(const uint8_t input_levels[12], const InferenceParams& params, uint8_t main_col);
+InferenceResults run_parallel_inference_nointe_bitser(const uint8_t input_levels[12], const InferenceParams& params);
 
 
 #endif 

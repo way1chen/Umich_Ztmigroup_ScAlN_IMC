@@ -45,8 +45,17 @@ void test_pwm_drift();
 void test_two_row_current();
 void test_tworows();
 void test_cleanrows();
+void test_iv_curve();
 
 void test_set_weights();
+void test_conductance_range_on_all();
+void test_set_img_proc_weights(bool neg_kernel);
+void test_set_img_proc_weights_neg();
+void test_read_all_weights();
+void test_erase_ispp();
+
+void test_neg_reset();
+void test_pos_prog();
 
 void print_test_menu() {
   Serial.println();
@@ -89,8 +98,16 @@ void print_test_menu() {
   Serial.println("30 - Test inputting into two rows of eqaully programmed cells and getting double the current");
   Serial.println("31 - Test rows 12 and 2 current");
   Serial.println("32 - codex assisted clean row test");
-  Serial.println("33 - set the weights on the ScAlN array for mnist testing");
-
+  Serial.println("33 - IV curve sweep. ");
+  Serial.println("34 - set the weights on the ScAlN array for mnist testing");
+  Serial.println("35 - Reset and run full range ispp on all cells to see the conductance range");
+  Serial.println("36 - Set the weights for image processing kernel");
+  Serial.println("37 - Set the offset weights for image processing negative kernel");
+  Serial.println("38 - reads all the programmed weights again");
+  Serial.println("39 - do erase and then ispp");
+  Serial.println("----------------------------------------------");
+  Serial.println("40 - apply strong reset pulse to bring range back down");
+  Serial.println("41 - apply strong programming pulse to bring range back up");
 
   Serial.println("Type -pymenu- to see python side menu");
   Serial.println();
@@ -200,10 +217,37 @@ void run_test(uint8_t test_id) {
     case TEST_CLEANROWS:
       test_cleanrows();
       break;
+    case TEST_IV_CURVE:
+      test_iv_curve();
+      break;
     
     case TEST_SET_WEIGHTS:
       test_set_weights();
       break;
+    case TEST_CONDUCTANCE_RANGE_ON_ALL:
+      test_conductance_range_on_all();
+      break;
+    case TEST_SET_IMG_PROC_WEIGHTS:
+      test_set_img_proc_weights(false);
+      break;
+    case TEST_SET_IMG_PROC_WEIGHTS_NEG:
+      test_set_img_proc_weights_neg();
+      break;
+    case TEST_READ_ALL_WEIGHTS:
+      test_read_all_weights();
+      break;
+    case TEST_ERASE_ISPP:
+      test_erase_ispp();
+      break;
+
+    case TEST_NEG_RESET:
+      test_neg_reset();
+      break;
+    case TEST_POS_PROG:
+      test_pos_prog();
+      break;
+    
+
     default:
       Serial.println("Invalid test selection.");
       break;
@@ -1152,7 +1196,7 @@ void test_full_sweep() {
   digitalWriteFast(PIN_CC3, LOW);
   sr595_deselect_all();
 
-  float vdac = 1.5f;
+  float vdac = 1.3f;
   float Rref = 1000000.0f;
   float adc3 = 0.0f;
   float adc2 = 0.0f;
@@ -1265,18 +1309,18 @@ void test_run_ispp() {
   //for (int i = 12; i > 11; --i) {
 
     IsppParams params = {};
-    params.v_read = 0.6f;
+    params.v_read = 0.7f;
     params.v_start = 0.8f;
     params.v_step = 0.005f;
     params.v_max = 1.5f;
-    params.tolerance = 0.00000000200000;
+    params.tolerance = 0.00000000100000;
 
     params.pulse_length = 3500.0f; // our adc read time is consistently about 2417 us. test 13. 
     params.max_pulses = 200;
 
     Serial.print("Running row "); Serial.println(i);
-    IsppResult results = run_ispp_cell(i, 3, 0.00000004000000, params);
-    //IsppResult results = run_ispp_cell(i, 2, 0.00004, params);
+    //IsppResult results = run_ispp_cell(i, 1, 0.000000045f, params);
+    IsppResult results = run_ispp_cell(i, 1, 0.00004, params);
 
 
 
@@ -1306,7 +1350,7 @@ void test_ivsweep_erase() {
   bool testing = false;
   uint8_t row = 12;
   float pulse_length = 3500.0f;
-  float v_read = 0.6f;
+  float v_read = 0.7f;
 
 
   Serial.println("Type the row you want to reset: ");
@@ -1324,7 +1368,7 @@ void test_ivsweep_erase() {
     }
   }
 
-  uint8_t col = 2;
+  uint8_t col = 1;
   float v_write = 1.5f;
 
   // read_cell(row,col,v_read,pulse_length);
@@ -1399,6 +1443,10 @@ void test_ivsweep_erase() {
     v_write = v_write + 0.01f;
     delayMicroseconds(2*pulse_length);
 
+    //read_cell(row,col,v_read,pulse_length);
+ 
+
+
   }
   v_write = 1.5f;
   for (int i = 0; i < 50; i++) {
@@ -1424,6 +1472,9 @@ void test_ivsweep_erase() {
     dac_set_voltage(AD5689_ADDR_DAC_A, 0.0f);
 
     delayMicroseconds(2*pulse_length);
+
+    //read_cell(row,col,v_read,pulse_length);
+
 
   }
 
@@ -1509,13 +1560,13 @@ void test_pwm_drift() {
   //   read_cell(row,col,v_read,pulse_length);
   // }
 
-  for (int i = 0; i < 100; ++i) {
+  for (int i = 0; i < 300; ++i) {
     read_cell(row,col,v_read,pulse_length);
     delayMicroseconds(pulse_length * 3);
   }
   Serial.println("IDLE");
   delay(2000);
-  for (int i = 0; i < 100; ++i) {
+  for (int i = 0; i < 300; ++i) {
     read_cell(row,col,v_read,pulse_length);
     delayMicroseconds(pulse_length * 3);
   }
@@ -1923,6 +1974,81 @@ void test_cleanrows() {
 
 }
 
+
+void test_iv_curve() {
+
+  uint8_t row = 12;
+  uint8_t col = 3;
+
+  float v_start = 0.01f;
+  float v_stop  = 1.30f;
+  float v_step  = 0.01f;
+
+  uint32_t settle_us = 3500;
+  for (float v_dac = v_start; v_dac <= v_stop; v_dac += v_step) {
+    dac_set_voltage(AD5689_ADDR_DAC_B, 0.0f);
+    dac_set_voltage(AD5689_ADDR_DAC_A, v_dac);
+
+    digitalWriteFast(PIN_VP, LOW);
+
+    select_column(col);
+
+    // Cell measurement.
+    sr595_select_row(row);
+    digitalWriteFast(PIN_ISPP, HIGH);
+    delayMicroseconds(settle_us);
+    float adc_raw = adc_read_channel(col);
+    digitalWriteFast(PIN_ISPP, LOW);
+
+    float current = (adc_raw) / 1900000.0f;
+
+    Serial.print(v_dac, 6);
+    Serial.print(",");
+    Serial.println(current, 15);
+
+    sr595_deselect_all();
+    deselect_all_columns();
+    dac_set_voltage(AD5689_ADDR_DAC_A, 0.0f);
+    dac_set_voltage(AD5689_ADDR_DAC_B, 0.0f);
+
+    delayMicroseconds(settle_us);
+
+  }
+
+  Serial.println("Down sweep");
+
+  for (float v_dac = v_stop; v_dac > v_start; v_dac -= v_step) {
+    dac_set_voltage(AD5689_ADDR_DAC_B, 0.0f);
+    dac_set_voltage(AD5689_ADDR_DAC_A, v_dac);
+
+    digitalWriteFast(PIN_VP, LOW);
+
+    select_column(col);
+
+    // Cell measurement.
+    sr595_select_row(row);
+    digitalWriteFast(PIN_ISPP, HIGH);
+    delayMicroseconds(settle_us);
+    float adc_raw = adc_read_channel(col);
+    digitalWriteFast(PIN_ISPP, LOW);
+
+    float current = (adc_raw) / 1900000.0f;
+
+    Serial.print(v_dac, 6);
+    Serial.print(",");
+    Serial.println(current, 15);
+
+    sr595_deselect_all();
+    deselect_all_columns();
+    dac_set_voltage(AD5689_ADDR_DAC_A, 0.0f);
+    dac_set_voltage(AD5689_ADDR_DAC_B, 0.0f);
+
+    delayMicroseconds(settle_us);
+
+  }
+}
+
+
 void test_set_weights() {
 
   
@@ -2030,5 +2156,648 @@ void test_set_weights() {
   Serial.println("Weights all set");
 }
 
+void test_conductance_range_on_all() {
+  
+  float v_read = 0.7f;
+  uint8_t col = 3;
+
+  bool valid_input = false;
+
+  Serial.println("Type the column you want to test (1-3):");
+
+  while (!valid_input) {
+    if (Serial.available() > 0) {
+      String input = Serial.readStringUntil('\n');
+      input.trim();
+
+      int requested_col = input.toInt();
+
+      if (requested_col < 1 || requested_col > 3) {
+        Serial.println("Invalid column. Enter 1, 2, or 3:");
+      } else {
+        col = (uint8_t)requested_col;
+        valid_input = true;
+      }
+    }
+  }
+
+  valid_input = false;
+
+  Serial.println("Type the vread DAC voltage you want to use:");
+
+  while (!valid_input) {
+    if (Serial.available() > 0) {
+      String input = Serial.readStringUntil('\n');
+      input.trim();
+
+      float requested_vread = input.toFloat();
+
+      if (requested_vread <= 0.0f || requested_vread > 1.5f) {
+        Serial.println("Invalid vread. Enter a value above 0 and at most 1.0:");
+      } else {
+        v_read = requested_vread;
+        valid_input = true;
+      }
+    }
+  }
+
+  Serial.print("Testing column ");
+  Serial.print(col);
+  Serial.print(" with vread ");
+  Serial.println(v_read, 3);
+
+  // attempt to erase conductance by starting at 0V to 12V to -12V back to 0V
+  float pulse_length = 3500.0f;
+
+  for (int row = 12; row > 0; --row) {
+    float v_write = 0.01f;
+    read_cell(row,col,v_read,pulse_length);
+
+    digitalWriteFast(PIN_CC2, LOW);
+    digitalWriteFast(PIN_CC1, LOW);
+    digitalWriteFast(PIN_VP, LOW);
+
+    Serial.println("From 0V to -12V");
+    for (int i = 0; i < 150; i++) {
+      dac_set_voltage(AD5689_ADDR_DAC_A, v_write);
+      dac_set_voltage(AD5689_ADDR_DAC_B, v_write);
+      //sr595_select_multiple_rows(0b1111000000000000); // GND the row you want to reset and open all others to v_write
+      sr595_select_multiple_rows((uint16_t)(1u << (row - 1)));
+
+      digitalWriteFast(PIN_CC1, LOW);
+      digitalWriteFast(PIN_CC2, LOW);
+      digitalWriteFast(PIN_CC3, LOW);
+
+      digitalWriteFast(PIN_VP, HIGH);
+      digitalWriteFast(PIN_ISPP, HIGH);
+      delayMicroseconds(pulse_length);
+      digitalWriteFast(PIN_ISPP, LOW);
+      digitalWriteFast(PIN_VP, LOW);
 
 
+      sr595_deselect_all();
+      deselect_all_columns();
+      dac_set_voltage(AD5689_ADDR_DAC_B, 0.0f);
+      dac_set_voltage(AD5689_ADDR_DAC_A, 0.0f);
+
+      v_write = v_write + 0.01f;
+      delayMicroseconds(2*pulse_length);
+
+    }
+    v_write = 1.5f;
+    for (int i = 0; i < 100; i++) {
+      dac_set_voltage(AD5689_ADDR_DAC_A, v_write);
+      dac_set_voltage(AD5689_ADDR_DAC_B, v_write);
+      //sr595_select_multiple_rows(0b1111000000000000); // GND the row you want to reset and open all others to v_write
+      sr595_select_multiple_rows((uint16_t)(1u << (row - 1)));
+
+      digitalWriteFast(PIN_CC1, LOW);
+      digitalWriteFast(PIN_CC2, LOW);
+      digitalWriteFast(PIN_CC3, LOW);
+
+      digitalWriteFast(PIN_VP, HIGH);
+      digitalWriteFast(PIN_ISPP, HIGH);
+      delayMicroseconds(pulse_length);
+      digitalWriteFast(PIN_ISPP, LOW);
+      digitalWriteFast(PIN_VP, LOW);
+
+
+      sr595_deselect_all();
+      deselect_all_columns();
+      dac_set_voltage(AD5689_ADDR_DAC_B, 0.0f);
+      dac_set_voltage(AD5689_ADDR_DAC_A, 0.0f);
+
+      delayMicroseconds(2*pulse_length);
+
+    }
+
+    read_cell(row,col,v_read,pulse_length);
+  }
+
+  // ispp 
+  for (int i = 12; i > 0; --i) {
+    IsppParams params = {};
+    params.v_read = v_read;
+    params.v_start = 0.8f;
+    params.v_step = 0.005f;
+    params.v_max = 1.5f;
+    params.tolerance = 0.00000000200000;
+
+    params.pulse_length = pulse_length; // our adc read time is consistently about 2417 us. test 13. 
+    params.max_pulses = 200;
+
+    Serial.print("Running row ");
+    Serial.print(i);
+    Serial.print(", column ");
+    Serial.println(col);
+    
+    IsppResult results = run_ispp_cell(i, col, 0.00004, params);
+
+    Serial.print("Final conductance: ");
+    Serial.println(results.final_readback, 15);
+    Serial.print("Cycles used: ");
+    Serial.println(results.cycles_used);
+    Serial.print("Last vwrite: ");
+    Serial.println(results.last_write_voltage);
+    Serial.println(results.success);
+
+    digitalWriteFast(PIN_ISPP, LOW);
+    digitalWriteFast(PIN_CC1, LOW);
+    digitalWriteFast(PIN_CC2, LOW);
+    digitalWriteFast(PIN_CC3, LOW);
+    sr595_deselect_all();
+
+    dac_set_voltage(AD5689_ADDR_DAC_A, 0.0f);
+    dac_set_voltage(AD5689_ADDR_DAC_B, 0.0f);
+  }
+
+  Serial.println("End of test");
+}
+
+void test_set_img_proc_weights(bool neg_kernel) {
+
+  
+  float pulse_length = 3500.0f;
+  float v_read = 0.9f;
+  uint8_t col = 3;
+
+  const uint8_t kernel_rows[] = {3, 4, 6, 8, 9, 10, 12};
+  const uint8_t kernel_len = sizeof(kernel_rows) / sizeof(kernel_rows[0]);
+
+  // const float shifted_kernel[] = {
+  //   0.00000002f, 0.00000003f,
+  //   0.00000004f, 0.00000004f,
+  //   0.00000003f, 0.00000002f, 0.00000002f // 0.00000002f is row 10 baseline
+  // };
+
+  // const float shifted_kernel[] = {
+  //   0.00000004f, 0.00000004f,
+  //   0.00000005f, 0.00000005f,
+  //   0.00000006f, 0.00000004f, 0.00000006f
+  //   // rows:          3            4
+  //   //                6            8
+  //   //                9     row10  12
+  // };
+    const float shifted_kernel[] = {
+    0.000000055f, 0.000000065f,
+    0.000000075f, 0.000000055f,
+    0.000000065f, 0.00000004f, 0.000000075f
+    // rows:          3            4
+    //                6            8
+    //                9     row10  12
+  };
+
+  const float offset_kernel[] = {
+    0.000000055f, 0.000000055f,
+    0.000000055f, 0.000000055f,
+    0.000000055f, 0.00000004f, 0.000000055f
+  };
+
+  const float* kernel = neg_kernel ? offset_kernel : shifted_kernel;
+  
+
+  IsppParams params = {};
+  params.v_read = v_read;
+  params.v_start = 0.8f;
+  params.v_step = 0.005f;
+  params.v_max = 1.5f;
+  params.tolerance = 0.0000000010;
+
+  params.pulse_length = pulse_length; // our adc read time is consistently about 2417 us. test 13. 
+  params.max_pulses = 200;
+
+
+  int iter_ker = 0;
+  for (int k = 0; k < kernel_len; ++k) {
+    // if (row == 7) {
+    //   continue;
+    // }
+    // program twice, once for calibration and once again for the real weight setting
+
+    uint8_t row = kernel_rows[k];
+
+
+    // reset cell 
+    float v_write = 0.01f;
+    read_cell(row,col,v_read,pulse_length);
+
+    digitalWriteFast(PIN_CC2, LOW);
+    digitalWriteFast(PIN_CC1, LOW);
+    digitalWriteFast(PIN_VP, LOW);
+
+    Serial.println("From 0V to -12V");
+    for (int i = 0; i < 150; i++) {
+      dac_set_voltage(AD5689_ADDR_DAC_A, v_write);
+      dac_set_voltage(AD5689_ADDR_DAC_B, v_write);
+      //sr595_select_multiple_rows(0b1111000000000000); // GND the row you want to reset and open all others to v_write
+      sr595_select_multiple_rows((uint16_t)(1u << (row - 1)));
+
+      digitalWriteFast(PIN_CC1, LOW);
+      digitalWriteFast(PIN_CC2, LOW);
+      digitalWriteFast(PIN_CC3, LOW);
+
+      digitalWriteFast(PIN_VP, HIGH);
+      digitalWriteFast(PIN_ISPP, HIGH);
+      delayMicroseconds(pulse_length);
+      digitalWriteFast(PIN_ISPP, LOW);
+      digitalWriteFast(PIN_VP, LOW);
+
+
+      sr595_deselect_all();
+      deselect_all_columns();
+      dac_set_voltage(AD5689_ADDR_DAC_B, 0.0f);
+      dac_set_voltage(AD5689_ADDR_DAC_A, 0.0f);
+
+      v_write = v_write + 0.01f;
+      delayMicroseconds(2*pulse_length);
+
+    }
+
+    read_cell(row,col,v_read,pulse_length);
+
+    Serial.print("Running row "); Serial.println(row);
+
+    IsppResult results = run_ispp_cell(row, col, kernel[iter_ker++], params);
+
+
+
+    Serial.print("Final conductance: ");
+    Serial.println(results.final_readback,15);
+    Serial.print("Cycles used: ");
+    Serial.println(results.cycles_used);
+    Serial.print("Last vwrite: ");
+    Serial.println(results.last_write_voltage);
+    Serial.println(results.success);
+
+    digitalWriteFast(PIN_ISPP, LOW);
+    digitalWriteFast(PIN_CC1, LOW);
+    digitalWriteFast(PIN_CC2, LOW);
+    digitalWriteFast(PIN_CC3, LOW);
+    sr595_deselect_all();
+
+    dac_set_voltage(AD5689_ADDR_DAC_A, 0.0f);
+    dac_set_voltage(AD5689_ADDR_DAC_B, 0.0f);
+  }
+  Serial.println("Weights all set");
+  // for (int i = 3; i < 13; i++) {
+  //   if (i == 7) {
+  //     continue;
+  //   }
+  //   read_cell(i, col, v_read, pulse_length);
+  // }
+
+}
+
+void test_set_img_proc_weights_neg() {
+  test_set_img_proc_weights(true);
+}
+
+
+// ===================================
+void test_read_all_weights() {
+
+  bool testing = false;
+  uint8_t col;
+  float pulse_length = 3500.0f;
+  // float v_read = 0.55f;
+  float v_read = 0.7f;
+
+  Serial.println("Type the col you want to do read all rows of ");
+  while (!testing) {
+    if (Serial.available() > 0) {
+      String input = Serial.readStringUntil('\n');
+      input.trim();
+
+      if (input.toInt() > 3 ) {
+        Serial.println("Invalid col");
+      } else {
+        testing = true;
+        col = input.toInt();
+      }
+    }
+  }
+
+  for (int i = 3; i < 13; i++) {
+    if (i == 7) {
+      continue;
+    }
+    read_cell(i, col, v_read, pulse_length);
+  }
+
+}
+
+void test_erase_ispp() {
+  float pulse_length = 3500.0f;
+  float v_read = 0.7f;
+
+  uint8_t col = 1;
+  float v_write = 1.5f;
+
+  //bool testing = false;
+  //uint8_t row = 5;
+  // Serial.println("Type the row you would like to check. (1 through 12)");
+  // while (!testing) {
+  //   if (Serial.available() > 0) {
+  //     String input = Serial.readStringUntil('\n');
+  //     input.trim();
+
+  //     if (input.toInt() < 1 || input.toInt() > 12) {
+  //       Serial.println("Row number out of bounds, try again.");
+  //     } else {
+  //       row = input.toInt();
+  //       testing = true;
+  //     }
+  //   }
+  // }
+  for (int row = 4; row < 13; ++row) {
+    for (int ww = 0; ww< 5; ww++) {
+      v_write = 0.01f;
+
+      read_cell(row,col,v_read,pulse_length);
+
+      digitalWriteFast(PIN_CC2, LOW);
+      digitalWriteFast(PIN_CC1, LOW);
+      digitalWriteFast(PIN_VP, LOW);
+
+      Serial.println("From 0V to -12V");
+      for (int i = 0; i < 150; i++) {
+        dac_set_voltage(AD5689_ADDR_DAC_A, v_write);
+        dac_set_voltage(AD5689_ADDR_DAC_B, v_write);
+        //sr595_select_multiple_rows(0b1111000000000000); // GND the row you want to reset and open all others to v_write
+        sr595_select_multiple_rows((uint16_t)(1u << (row - 1)));
+
+        digitalWriteFast(PIN_CC1, LOW);
+        digitalWriteFast(PIN_CC2, LOW);
+        digitalWriteFast(PIN_CC3, LOW);
+
+        digitalWriteFast(PIN_VP, HIGH);
+        digitalWriteFast(PIN_ISPP, HIGH);
+        delayMicroseconds(pulse_length);
+        digitalWriteFast(PIN_ISPP, LOW);
+        digitalWriteFast(PIN_VP, LOW);
+
+
+        sr595_deselect_all();
+        deselect_all_columns();
+        dac_set_voltage(AD5689_ADDR_DAC_B, 0.0f);
+        dac_set_voltage(AD5689_ADDR_DAC_A, 0.0f);
+
+        v_write = v_write + 0.01f;
+        delayMicroseconds(2*pulse_length);
+
+        //read_cell(row,col,v_read,pulse_length);
+    
+
+
+      }
+      v_write = 1.5f;
+      for (int i = 0; i < 50; i++) {
+        dac_set_voltage(AD5689_ADDR_DAC_A, v_write);
+        dac_set_voltage(AD5689_ADDR_DAC_B, v_write);
+        //sr595_select_multiple_rows(0b1111000000000000); // GND the row you want to reset and open all others to v_write
+        sr595_select_multiple_rows((uint16_t)(1u << (row - 1)));
+
+        digitalWriteFast(PIN_CC1, LOW);
+        digitalWriteFast(PIN_CC2, LOW);
+        digitalWriteFast(PIN_CC3, LOW);
+
+        digitalWriteFast(PIN_VP, HIGH);
+        digitalWriteFast(PIN_ISPP, HIGH);
+        delayMicroseconds(pulse_length);
+        digitalWriteFast(PIN_ISPP, LOW);
+        digitalWriteFast(PIN_VP, LOW);
+
+
+        sr595_deselect_all();
+        deselect_all_columns();
+        dac_set_voltage(AD5689_ADDR_DAC_B, 0.0f);
+        dac_set_voltage(AD5689_ADDR_DAC_A, 0.0f);
+
+        delayMicroseconds(2*pulse_length);
+
+        //read_cell(row,col,v_read,pulse_length);
+
+
+      }
+
+      read_cell(row,col,v_read,pulse_length);
+
+
+
+
+
+    //for (int i = 12; i > 11; --i) {
+
+      IsppParams params = {};
+      params.v_read = 0.7f;
+      params.v_start = 0.8f;
+      params.v_step = 0.005f;
+      params.v_max = 1.5f;
+      params.tolerance = 0.00000000100000;
+
+      params.pulse_length = 3500.0f; // our adc read time is consistently about 2417 us. test 13. 
+      params.max_pulses = 200;
+
+      Serial.print("Running row "); Serial.println(row);
+      //IsppResult results = run_ispp_cell(i, 1, 0.000000045f, params);
+      IsppResult results = run_ispp_cell(row, 1, 0.00004, params);
+
+
+
+      Serial.print("Final resistance: ");
+      Serial.println(results.final_readback);
+      Serial.print("Cycles used: ");
+      Serial.println(results.cycles_used);
+      Serial.print("Last vwrite: ");
+      Serial.println(results.last_write_voltage);
+      Serial.println(results.success);
+
+      digitalWriteFast(PIN_ISPP, LOW);
+      digitalWriteFast(PIN_CC1, LOW);
+      digitalWriteFast(PIN_CC2, LOW);
+      digitalWriteFast(PIN_CC3, LOW);
+      sr595_deselect_all();
+
+      dac_set_voltage(AD5689_ADDR_DAC_A, 0.0f);
+      dac_set_voltage(AD5689_ADDR_DAC_B, 0.0f);
+
+
+    }
+  }
+  Serial.println("End of test");
+
+
+}
+
+void apply_negative_reset_pulse_row(uint8_t row, float v_reset_dac, uint32_t pulse_us) {
+  // v_reset_dac = 1.5 V at DAC -> about 12 V at array if your gain is x8
+
+  dac_set_voltage(AD5689_ADDR_DAC_A, v_reset_dac);
+  dac_set_voltage(AD5689_ADDR_DAC_B, v_reset_dac);
+
+  // This follows your existing reset path:
+  // selected row is grounded/selected, columns driven through VP path.
+  sr595_select_multiple_rows((uint16_t)(1u << (row - 1)));
+
+  digitalWriteFast(PIN_CC1, LOW);
+  digitalWriteFast(PIN_CC2, LOW);
+  digitalWriteFast(PIN_CC3, LOW);
+
+  digitalWriteFast(PIN_VP, HIGH);
+  digitalWriteFast(PIN_ISPP, HIGH);
+
+  delayMicroseconds(pulse_us);
+
+  digitalWriteFast(PIN_ISPP, LOW);
+  digitalWriteFast(PIN_VP, LOW);
+
+  sr595_deselect_all();
+  deselect_all_columns();
+
+  dac_set_voltage(AD5689_ADDR_DAC_A, 0.0f);
+  dac_set_voltage(AD5689_ADDR_DAC_B, 0.0f);
+}
+
+void test_neg_reset() {
+
+  uint8_t col = 1;
+
+  float v_read = 0.7f;
+  float v_reset_dac = 1.5f;
+
+  uint32_t read_pulse_us = 3500;
+  uint32_t reset_pulse_us = 20000;   // start with 10 ms reset pulses
+
+  int pulses_per_block = 200;
+  int num_blocks = 10;
+
+  Serial.println("=== DOWN-TRAINING TEST START ===");
+  Serial.println("Initial conductance readings:");
+
+  for (int row = 3; row <= 12; row++) {
+
+
+    Serial.print("Row ");
+    Serial.print(row);
+    Serial.print(": ");
+    read_cell(row, col, v_read, read_pulse_us);
+  }
+
+  for (int block = 0; block < num_blocks; block++) {
+    Serial.print("Reset block ");
+    Serial.print(block + 1);
+    Serial.print("/");
+    Serial.println(num_blocks);
+
+    for (int row = 3; row <= 12; row++) {
+
+
+      for (int p = 0; p < pulses_per_block; p++) {
+        apply_negative_reset_pulse_row(row, v_reset_dac, reset_pulse_us);
+
+        // rest after each reset pulse
+        delayMicroseconds(2 * reset_pulse_us);
+      }
+    }
+
+    Serial.println("Conductance after this reset block:");
+
+    for (int row = 3; row <= 12; row++) {
+
+
+      Serial.print("Row ");
+      Serial.print(row);
+      Serial.print(": ");
+      read_cell(row, col, v_read, read_pulse_us);
+    }
+
+    // Let traps/relaxation show up a little.
+    delay(2000);
+  }
+
+  Serial.println("=== DOWN-TRAINING TEST END ===");
+}
+
+void test_pos_prog() {
+  bool testing = false;
+  uint8_t row = 5;
+  Serial.println("Type the row you would like to check. (1 through 12)");
+  while (!testing) {
+    if (Serial.available() > 0) {
+      String input = Serial.readStringUntil('\n');
+      input.trim();
+
+      if (input.toInt() < 1 || input.toInt() > 12) {
+        Serial.println("Row number out of bounds, try again.");
+      } else {
+        row = input.toInt();
+        testing = true;
+      }
+    }
+  }
+  uint8_t col = 1;
+
+  float v_read = 0.7f;
+  float v_write = 1.5f;
+  float pulse_length = 20000.0f;
+
+  int pulses_per_block = 100;
+  int num_blocks = 10;
+
+  Serial.println("=== Write-cell recovery test: row 7 col 1 ===");
+
+  Serial.println("Initial read:");
+  read_cell(row, col, v_read, pulse_length);
+
+  for (int block = 0; block < num_blocks; block++) {
+    Serial.print("Write recovery block ");
+    Serial.print(block + 1);
+    Serial.print("/");
+    Serial.println(num_blocks);
+
+    for (int p = 0; p < pulses_per_block; p++) {
+      dac_set_voltage(AD5689_ADDR_DAC_B, v_write / 2.0f); // give v/2 first before v due to safety reasons, (V/2 difference rather than full V difference)
+      dac_set_voltage(AD5689_ADDR_DAC_A, v_write);
+
+      digitalWriteFast(PIN_VP, HIGH); // unselected cols to botdrive
+
+      sr595_select_row(row);
+      select_column(col);
+
+      digitalWriteFast(PIN_ISPP, HIGH);
+      delayMicroseconds(pulse_length); // WRITE PULSE IS DIFFERENT FROM ALL OTHER PULSES !!! Doing this improves the valid conductance range
+
+      digitalWriteFast(PIN_ISPP, LOW);
+
+      digitalWriteFast(PIN_VP, LOW);
+
+      sr595_deselect_all();
+      deselect_all_columns();
+
+      dac_set_voltage(AD5689_ADDR_DAC_B, 0.0f);
+      dac_set_voltage(AD5689_ADDR_DAC_A, 0.0f);
+
+      // double the ground time
+      delayMicroseconds(pulse_length*2);
+    }
+
+    Serial.println("Read after block:");
+    read_cell(row, col, v_read, pulse_length);
+
+    delay(1000);
+  }
+
+  digitalWriteFast(PIN_ISPP, LOW);
+  digitalWriteFast(PIN_VP, LOW);
+  digitalWriteFast(PIN_CC1, LOW);
+  digitalWriteFast(PIN_CC2, LOW);
+  digitalWriteFast(PIN_CC3, LOW);
+
+  sr595_deselect_all();
+  deselect_all_columns();
+
+  dac_set_voltage(AD5689_ADDR_DAC_A, 0.0f);
+  dac_set_voltage(AD5689_ADDR_DAC_B, 0.0f);
+
+  Serial.println("=== End write-cell recovery test ===");
+}

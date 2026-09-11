@@ -24,7 +24,7 @@ void write_cell_once(uint8_t row, uint8_t col, float v_write, float pulse_length
 
 // check whether the weight is within tolerance of our target during write
 bool is_within_tolerance(float measured, float target, float tolerance) {
-  if (fabsf(measured - target) < tolerance) {
+  if (fabsf(measured - target) <= tolerance) {
     // Serial.println("inside tolerance");
     // float rest = read_cell(12,3,0.55,3500);
     return true;
@@ -47,10 +47,10 @@ IsppResult run_ispp_cell(uint8_t row, uint8_t col, float target, const IsppParam
   float v_step = params.v_step;
   float v_max = params.v_max;
   float pulse_length = params.pulse_length;
-  uint8_t max_pulses = params.max_pulses;
+  uint16_t max_pulses = params.max_pulses;
 
   // define how to want to log / print progress
-  for (uint8_t cycle = 0; cycle < max_pulses; cycle++) {
+  for (uint16_t cycle = 0; cycle < max_pulses; cycle++) {
 
     results.final_readback = read_verify_cell(row, col, v_read, pulse_length);
 
@@ -59,16 +59,28 @@ IsppResult run_ispp_cell(uint8_t row, uint8_t col, float target, const IsppParam
       break;
     }
 
-    if (v_write > v_max) {
-      results.success = false;
+    if (results.final_readback > results.target + tolerance) {
+      // Serial.println("ISPP overshot target.");
+      results.success = true;
       break;
     }
+
+    // if (v_write > v_max) {
+    //   results.success = false;
+    //   break;
+    // }
 
     write_cell_once(row,col,v_write, pulse_length);
 
     results.last_write_voltage = v_write;
-    v_write = v_write + v_step;
+    if (v_write < v_max) {
+      v_write = min(v_write + v_step, v_max);
+    }
     results.cycles_used++;
+  }
+  if (!results.success) {
+    results.final_readback =
+        read_verify_cell(row, col, v_read, pulse_length);
   }
   
   return results;

@@ -125,14 +125,14 @@ inline float read_cell(uint8_t row, uint8_t col, float v_read, float pulse_lengt
     dac_set_voltage(AD5689_ADDR_DAC_B, 0.0f);
     dac_set_voltage(AD5689_ADDR_DAC_A, 0.0f);
 
-    // we want to compare the conductance/resistance of the weights. 8 is the gain, 200000 is the Rref of the TIA. 
-    float read_resistance = (read_voltage/(8.0*v_read*1000000.0));
-    Serial.print("Current conductance: ");Serial.println(read_resistance, 15);
+    // we want to compare the conductance/resistance of the weights. 8 is the gain, 1000000 is the Rref of the TIA. 
+    float read_conductance = (read_voltage/(8.0*v_read*1900000.0));
+    Serial.print("Current conductance: ");Serial.println(read_conductance, 15);
 
     // double the ground time
     delayMicroseconds(pulse_length*2);
 
-    return read_resistance; 
+    return read_conductance; 
 }
 
 // ---------------------------------------------------------------------------
@@ -153,7 +153,7 @@ inline void write_cell(uint8_t row, uint8_t col, float v_write, float pulse_leng
     select_column(col);
 
     digitalWriteFast(PIN_ISPP, HIGH);
-    delayMicroseconds(pulse_length);
+    delayMicroseconds(15000); // WRITE PULSE IS DIFFERENT FROM ALL OTHER PULSES !!! Doing this improves the valid conductance range (11000)
 
     digitalWriteFast(PIN_ISPP, LOW);
 

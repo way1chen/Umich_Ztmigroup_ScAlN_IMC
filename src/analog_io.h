@@ -150,6 +150,57 @@ inline float adc_read_channel(uint8_t channel) {
 
   return voltage;
 }
+
+
+inline int16_t adc_read_raw(uint8_t channel) {
+  int8_t ain = 0;
+
+  switch (channel) {
+    case 1:
+      ain = ADC_CHANNEL_0_AIN;
+      break;
+    case 2:
+      ain = ADC_CHANNEL_1_AIN;
+      break;
+    case 3:
+      ain = ADC_CHANNEL_2_AIN;
+      break;
+    case 4:
+      ain = ADC_CHANNEL_3_AIN;
+      break;
+    default:
+      Serial.print("ERROR: invalid ADC channel ");
+      Serial.println(channel);
+      return 0;
+  }
+
+  if (!ads1115_start_single_ended_conversion(Wire, ADS1115_I2C_ADDR, (uint8_t)ain)) {
+    Serial.print("ERROR: ADS1115 start failed on channel ");
+    Serial.println(channel);
+    return 0;
+  }
+
+  const uint32_t t_start_ms = millis();
+
+  while (!ads1115_conversion_ready(Wire, ADS1115_I2C_ADDR)) {
+    if (millis() - t_start_ms > 10) {
+      Serial.print("ERROR: ADS1115 raw read timeout on channel ");
+      Serial.println(channel);
+      return 0;
+    }
+    delayMicroseconds(50);
+  }
+
+  int16_t raw = 0;
+
+  if (!ads1115_read_conversion_raw(Wire, ADS1115_I2C_ADDR, raw)) {
+    Serial.print("ERROR: ADS1115 raw read failed on channel ");
+    Serial.println(channel);
+    return 0;
+  }
+
+  return raw;
+}
 // -----------------------------------------------------------------------------------------------------------------------------------
 
 #endif //ANALOG_IO_H

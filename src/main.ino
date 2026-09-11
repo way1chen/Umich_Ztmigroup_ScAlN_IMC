@@ -200,6 +200,18 @@ void loop() {
         run_cnn_test_resistor(theinput);
         delay(1);
 
+      } else if (theinput.startsWith("WEIGHTS,")) {
+        run_cnn_set_weights(theinput);
+        delay(1);
+
+      } else if (theinput.startsWith("PATCHCNNONE,")) {
+        run_cnn_test_onecol(theinput);
+        delay(1);
+
+      } else if (theinput.startsWith("CNNWEIGHTS,")) {
+        run_cnn_set_weights_onecol(theinput);
+        delay(1);
+            
       } else if (theinput.equalsIgnoreCase("testmenu")) {
         print_test_menu();
 
