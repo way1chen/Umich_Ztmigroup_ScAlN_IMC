@@ -57,11 +57,11 @@ OFFSET_PASS_PATH = DATA_DIR / "imgproc" / "offset_pass.npz"
 #     [2, 3]
 # ], dtype=np.float32)
 
-# kernel = np.array([
-#     [1, 2, 1],
-#     [2, 4, 2],
-#     [1, 2, 1]
-# ], dtype=np.float32)
+kernel = np.array([
+    [1, 2, 1],
+    [2, 4, 2],
+    [1, 2, 1]
+], dtype=np.float32)
 
 # kernel = 0.7*np.array([
 #     [3.5,4.5,3.5],
@@ -80,10 +80,10 @@ OFFSET_PASS_PATH = DATA_DIR / "imgproc" / "offset_pass.npz"
 #     [0,0],
 #     [1,1]
 # ], dtype=np.float32)
-kernel = 0.7*np.array([
-    [-1,0,1],
-    [-1,0,1]
-], dtype=np.float32)
+# kernel = 0.7*np.array([
+#     [-1,0,1],
+#     [-1,0,1]
+# ], dtype=np.float32)
 
 # kernel = np.array([
 #     [3.,3.3,3.],
@@ -688,115 +688,115 @@ def randomize_calibration_patches(n=20, seed=0):
     patches.append(np.ones(kernel.shape, dtype=np.float32))
 
     # structured signed-edge anchors
-    # patches.append(np.array([
-    #     [1, 1, 1],
-    #     [0, 0, 0],
-    #     [0, 0, 0],
-    # ], dtype=np.float32))
     patches.append(np.array([
-        [1, 1],
-        [0, 0],
-        [0, 0],
+        [1, 1, 1],
+        [0, 0, 0],
+        [0, 0, 0],
     ], dtype=np.float32))
     # patches.append(np.array([
-    #     [0, 0, 0],
-    #     [0, 0, 0],
-    #     [1, 1, 1],
+    #     [1, 1],
+    #     [0, 0],
+    #     [0, 0],
     # ], dtype=np.float32))
     patches.append(np.array([
-        [0, 0],
-        [0, 0],
-        [1, 1],
+        [0, 0, 0],
+        [0, 0, 0],
+        [1, 1, 1],
     ], dtype=np.float32))
+    # patches.append(np.array([
+    #     [0, 0],
+    #     [0, 0],
+    #     [1, 1],
+    # ], dtype=np.float32))
 
-    # patches.append(np.array([
-    #     [1, 0, 0],
-    #     [1, 0, 0],
-    #     [1, 0, 0],
-    # ], dtype=np.float32))
     patches.append(np.array([
-        [1, 0],
-        [1, 0],
-        [1, 0],
+        [1, 0, 0],
+        [1, 0, 0],
+        [1, 0, 0],
     ], dtype=np.float32))
+    # patches.append(np.array([
+    #     [1, 0],
+    #     [1, 0],
+    #     [1, 0],
+    # ], dtype=np.float32))
 
-    # patches.append(np.array([
-    #     [0, 0, 1],
-    #     [0, 0, 1],
-    #     [0, 0, 1],
-    # ], dtype=np.float32))
     patches.append(np.array([
-        [0, 1],
-        [0, 1],
-        [0, 1],
+        [0, 0, 1],
+        [0, 0, 1],
+        [0, 0, 1],
     ], dtype=np.float32))
+    # patches.append(np.array([
+    #     [0, 1],
+    #     [0, 1],
+    #     [0, 1],
+    # ], dtype=np.float32))
     # One active corner
-    # patches.append(np.array([
-    #     [1, 0, 0],
-    #     [0, 0, 0],
-    #     [0, 0, 0],
-    # ], dtype=np.float32))
     patches.append(np.array([
-        [1, 0],
-        [0, 0],
-        [0, 0],
+        [1, 0, 0],
+        [0, 0, 0],
+        [0, 0, 0],
     ], dtype=np.float32))
+    # patches.append(np.array([
+    #     [1, 0],
+    #     [0, 0],
+    #     [0, 0],
+    # ], dtype=np.float32))
 
     # One active center
-    # patches.append(np.array([
-    #     [0, 0, 0],
-    #     [0, 1, 0],
-    #     [0, 0, 0],
-    # ], dtype=np.float32))
     patches.append(np.array([
-        [0, 0],
-        [0, 1],
-        [0, 0],
+        [0, 0, 0],
+        [0, 1, 0],
+        [0, 0, 0],
     ], dtype=np.float32))
+    # patches.append(np.array([
+    #     [0, 0],
+    #     [0, 1],
+    #     [0, 0],
+    # ], dtype=np.float32))
 
 
     # Two active pixels
-    # patches.append(np.array([
-    #     [1, 0, 0],
-    #     [0, 0, 0],
-    #     [0, 0, 1],
-    # ], dtype=np.float32))
     patches.append(np.array([
-        [1, 0],
-        [0, 0],
-        [0, 1],
+        [1, 0, 0],
+        [0, 0, 0],
+        [0, 0, 1],
     ], dtype=np.float32))
+    # patches.append(np.array([
+    #     [1, 0],
+    #     [0, 0],
+    #     [0, 1],
+    # ], dtype=np.float32))
 
     # Four active corners
-    # patches.append(np.array([
-    #     [1, 0, 1],
-    #     [0, 0, 0],
-    #     [1, 0, 1],
-    # ], dtype=np.float32))
     patches.append(np.array([
-        [1, 1],
-        [0, 0],
-        [1, 1],
+        [1, 0, 1],
+        [0, 0, 0],
+        [1, 0, 1],
     ], dtype=np.float32))
+    # patches.append(np.array([
+    #     [1, 1],
+    #     [0, 0],
+    #     [1, 1],
+    # ], dtype=np.float32))
 
     # Cross pattern
-    # patches.append(np.array([
-    #     [0, 1, 0],
-    #     [1, 1, 1],
-    #     [0, 1, 0],
-    # ], dtype=np.float32))
     patches.append(np.array([
-        [1, 1],
-        [1, 0],
-        [1, 1],
+        [0, 1, 0],
+        [1, 1, 1],
+        [0, 1, 0],
     ], dtype=np.float32))
+    # patches.append(np.array([
+    #     [1, 1],
+    #     [1, 0],
+    #     [1, 1],
+    # ], dtype=np.float32))
 
     # Checkerboard pattern
-    # patches.append(np.array([
-    #     [1, 0, 1],
-    #     [0, 1, 0],
-    #     [1, 0, 1],
-    # ], dtype=np.float32))
+    patches.append(np.array([
+        [1, 0, 1],
+        [0, 1, 0],
+        [1, 0, 1],
+    ], dtype=np.float32))
 
     if (kernel.shape == (2,3)):
         patches = [
