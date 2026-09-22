@@ -14,6 +14,16 @@
   * If no LICENSE file comes with this software, it is provided AS-IS.
   *
   ******************************************************************************
+  HOW TO RUN THE BOARD:
+  0. Connect ST-Link and power on the power supply.
+  1. Ctrl + B to build the project
+  2. Run -> Debug As - > STM32 C
+  3. Debug probe: ST LINK, connect under reset or software system reset (Adjust SWD frequency to 1MHz if needed)
+  4. Click debug and resume if it stops.
+  5. Plug in USB-C and open the CH340's port at 115200 baud in CubeIDE terminal.
+  6. Type in the terminal to turn PIN PU on/off.
+
+  ******************************************************************************
   */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
@@ -21,6 +31,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+
+#include <stdio.h>
 
 /* USER CODE END Includes */
 
@@ -57,6 +69,25 @@ static void MX_USART1_UART_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+/* Send printf output out through USART1 -> CH340 -> USB-C */
+int __io_putchar(int ch)
+{
+  HAL_UART_Transmit(&huart1, (uint8_t *)&ch, 1, HAL_MAX_DELAY);
+  return ch;
+}
+
+/* PU low  -> Q1 off -> CTRL floats -> +/-15V module ON
+   PU high -> Q1 on  -> CTRL low    -> +/-15V module OFF */
+static void AnalogPower_Set(int on)
+{
+  HAL_GPIO_WritePin(PU_GPIO_Port, PU_Pin, on ? GPIO_PIN_RESET : GPIO_PIN_SET); // reset drives pin to low which is on for pin PU
+}
+
+static int AnalogPower_IsOn(void)
+{
+  return HAL_GPIO_ReadPin(PU_GPIO_Port, PU_Pin) == GPIO_PIN_RESET;
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -91,6 +122,11 @@ int main(void)
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
 
+  setvbuf(stdout, NULL, _IONBF, 0);   /* print immediately instead of buffering */
+  AnalogPower_Set(0);                 /* make sure +/-15V is off (PIN PU IS HIGH)*/
+  printf("\r\nscaln-imc boot. PU PIN is OFF.\r\n");
+  printf("Send '1' = +/-15V ON, '0' = OFF, '?' = status\r\n");
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -100,6 +136,15 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+	uint8_t c;
+	HAL_StatusTypeDef st = HAL_UART_Receive(&huart1, &c, 1, 10);
+	if (st == HAL_OK) {
+	  if (c == '1')      { AnalogPower_Set(1); printf("Analog power ON\r\n"); }
+	  else if (c == '0') { AnalogPower_Set(0); printf("Analog power OFF\r\n"); }
+	  else if (c == '?') { printf("Analog power is %s\r\n", AnalogPower_IsOn() ? "ON" : "OFF"); }
+	} else if (st == HAL_ERROR) {
+	  __HAL_UART_CLEAR_OREFLAG(&huart1);  /* recover if characters arrived too fast */
+	}
   }
   /* USER CODE END 3 */
 }
