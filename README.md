@@ -1,7 +1,21 @@
-# ScAlN in-memory computing
+# ScAlN Ferroelectric In-memory Computing array 
 
-The current FPGA controller and Vivado/Vitis setup are documented in
-[fpga/smart_zynq/README.md](fpga/smart_zynq/README.md).
 
-`src/` and `stm32folder/` contain earlier experiment software and firmware.
-`Hardware.zip` contains hardware references.
+
+
+Raspberry Pi
+
+Make sure to do sudo poweroff before disconnecting the shell. 
+
+Use nano as the text editor for code.
+
+Setting up:
+
+- Clone the repo
+- On Arduino IDE, File -> Preferences and paste link: https://www.pjrc.com/teensy/package_teensy_index.json
+- On package manager download Teensy 4.1
+- Connect to teensy port and recognize which COM# port you are connected to
+- Go to teensycom.py and set MNIST dataset download to True
+- Change the port number to your COM#
+- pip install -r requirements.txt in terminal
+- Run teensycom.py

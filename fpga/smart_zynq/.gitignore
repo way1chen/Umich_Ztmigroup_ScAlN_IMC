@@ -1,4 +1,4 @@
-/fpga/smart_zynq/build/
+/build/
 /.Xil/
 /*.log
 /*.jou
