@@ -1,0 +1,8 @@
+/fpga/smart_zynq/build/
+/.Xil/
+/*.log
+/*.jou
+/*.str
+/*.pb
+__pycache__/
+*:Zone.Identifier
