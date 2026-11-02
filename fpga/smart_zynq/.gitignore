@@ -1,14 +1,8 @@
-# Generated Vivado project state and outputs
-build/
-build_vivado/
-*.jou
-*.log
-*.str
-*.cache/
-*.runs/
-*.gen/
-*.hw/
-*.ip_user_files/
-*.xpr
-*.bit
-*.xsa
+/build/
+/.Xil/
+/*.log
+/*.jou
+/*.str
+/*.pb
+__pycache__/
+*:Zone.Identifier
