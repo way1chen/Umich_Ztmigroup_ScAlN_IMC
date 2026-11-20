@@ -39,7 +39,11 @@ module imc_axi_wrapper (
     (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 S_AXI RVALID" *)
     output wire s_axi_rvalid,
     (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 S_AXI RREADY" *)
-    input wire s_axi_rready
+    input wire s_axi_rready,
+    output wire [3:0] integrator_rst_n,
+    input wire [3:0] spike,
+    output wire dac_cs_n, dac_sclk, dac_mosi,
+    input wire dac_miso
 );
     imc_top u_imc (
         .s_axi_aclk(s_axi_aclk), .s_axi_aresetn(s_axi_aresetn),
@@ -51,6 +55,8 @@ module imc_axi_wrapper (
         .s_axi_araddr(s_axi_araddr), .s_axi_arvalid(s_axi_arvalid),
         .s_axi_arready(s_axi_arready), .s_axi_rdata(s_axi_rdata),
         .s_axi_rresp(s_axi_rresp), .s_axi_rvalid(s_axi_rvalid),
-        .s_axi_rready(s_axi_rready)
+        .s_axi_rready(s_axi_rready),
+        .integrator_rst_n(integrator_rst_n), .spike(spike),
+        .dac_cs_n(dac_cs_n), .dac_sclk(dac_sclk), .dac_mosi(dac_mosi), .dac_miso(dac_miso)
     );
-endmodule // axi interconnect wrapper
+endmodule

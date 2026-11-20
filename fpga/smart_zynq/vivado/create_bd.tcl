@@ -1,9 +1,8 @@
 create_bd_design system
 set ps [create_bd_cell -type ip -vlnv xilinx.com:ip:processing_system7:5.5 ps7]
 
-# Device-level PS defaults must be reviewed for the actual Zynq board,
-# especially DDR, MIO, and PS clock. Only the PL AXI settings are generic.
 set_property -dict [list \
+    CONFIG.PCW_CRYSTAL_PERIPHERAL_FREQMHZ {33.333333} \
     CONFIG.PCW_FPGA0_PERIPHERAL_FREQMHZ {100} \
     CONFIG.PCW_FPGA_FCLK0_ENABLE {1} \
     CONFIG.PCW_USE_M_AXI_GP0 {1} \
@@ -11,6 +10,11 @@ set_property -dict [list \
 
 set imc [create_bd_cell -type module \
     -reference imc_axi_wrapper imc]
+# Logical PCB nets only. Package pins require the still-missing cable map.
+foreach net {integrator_rst_n spike dac_cs_n dac_sclk dac_mosi dac_miso} {
+    make_bd_pins_external [get_bd_pins imc/$net]
+    set_property name $net [get_bd_ports ${net}_0]
+}
 set ic [create_bd_cell -type ip -vlnv xilinx.com:ip:axi_interconnect:* axi_ic]
 set_property -dict [list CONFIG.NUM_SI {1} CONFIG.NUM_MI {1}] $ic
 set rst [create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:* axi_reset]

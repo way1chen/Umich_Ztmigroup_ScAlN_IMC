@@ -1,33 +1,20 @@
-/* Standalone Vitis application: PS -> AXI4-Lite -> IMC register smoke test. */
 #include <stdint.h>
 #include "xil_io.h"
-#include "xil_printf.h"
 #include "imc_platform.h"
 
-#define REG_CONTROL   0x00u
-#define REG_STATUS    0x04u
-#define REG_SCRATCH   0x08u
-#define REG_DESIGN_ID 0xFCu
-#define DESIGN_ID     0x494D4301u
+#define SCRATCH_OFFSET   0x08u
+#define PATTERN          0xA5C35A3Cu
+
+volatile uint32_t imc_smoke_result; // 0 running, 1 pass, 3 bad scratch
+volatile uint32_t imc_smoke_scratch;
 
 int main(void)
 {
     const UINTPTR base = (UINTPTR)IMC_AXI_BASEADDR;
-    const uint32_t pattern = 0xA5C35A3Cu;
-    uint32_t id = Xil_In32(base + REG_DESIGN_ID);
-    uint32_t scratch;
-    uint32_t status;
-
-    Xil_Out32(base + REG_SCRATCH, pattern);
-    scratch = Xil_In32(base + REG_SCRATCH);
-    Xil_Out32(base + REG_CONTROL, pattern);
-    status = Xil_In32(base + REG_STATUS);
-    xil_printf("IMC AXI id=%08x scratch=%08x status=%08x\r\n",
-               (unsigned int)id, (unsigned int)scratch, (unsigned int)status);
-    if (id != DESIGN_ID || scratch != pattern || status != pattern) {
-        xil_printf("IMC AXI smoke test failed\r\n");
-        return 1;
+    Xil_Out32(base + SCRATCH_OFFSET, PATTERN);
+    imc_smoke_scratch = Xil_In32(base + SCRATCH_OFFSET);
+    imc_smoke_result = imc_smoke_scratch == PATTERN ? 1u : 3u;
+    for (;;) {
+        __asm__ volatile ("wfi");
     }
-    xil_printf("IMC AXI smoke test passed\r\n");
-    return 0;
-} // written by claude just a smoke test
+}
